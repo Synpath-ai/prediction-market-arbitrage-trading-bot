@@ -141,14 +141,6 @@ prediction-market-arbitrage-trading-bot/
 └── tests/               # Offline unit tests
 ```
 
-## Limitations
-
-- **Paper results are not fills:** trades are recorded at the quoted top-of-book prices. A real order could move the price or fill partly, and the two legs would fill on different platforms at slightly different times.
-- **Liquidity:** many markets have thin order books; position size is capped by the size quoted at the best price.
-- **Capital lock-up:** a position that never reaches the profit target is held until resolution.
-- **Settlement risk:** the arbitrage only holds if both platforms resolve the market the same way. Always read both platforms' rules.
-- **Backtest assumptions:** hourly data, Polymarket's historical price used as both bid and ask, and fills assumed at the quoted price.
-
 ## Powered By
 
 - [Synpath](https://www.synpath.dev): unified API for Kalshi and Polymarket (market matching, order books, fees, history)
