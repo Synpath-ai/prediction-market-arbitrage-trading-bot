@@ -21,6 +21,49 @@ This bot:
 - **Signals entries and exits** and tracks paper positions and P&L at the quoted prices
 - **Backtests** the same strategy on historical prices and charts the results
 
+## How Cross-Platform Arbitrage Works
+
+Every prediction market contract pays **$1** if its outcome happens and **$0** if not. So if you hold **YES on one platform and NO on the other** for the same outcome, exactly one of them pays out: the pair is worth $1 no matter what happens.
+
+The two platforms don't always agree on the price. When they disagree by enough, you can buy that $1 pair for less than $1. The strategy doesn't have to wait for the market to resolve to collect: as the two prices move back toward each other, the pair can often be sold early for more than it cost.
+
+**Example** (1,000 contracts, fees included):
+
+| | Kalshi | Polymarket |
+|---|---|---|
+| Price of YES | 39¢ | 45¢ |
+| Price of NO | 62¢ | 55¢ |
+
+**1. Entry: Kalshi's YES is cheaper**
+
+| | |
+|---|---|
+| Buy YES on Kalshi | 39¢ |
+| Buy NO on Polymarket | 55¢ |
+| **Total cost** | **94¢** |
+| Trading fees (both platforms) | 2.7¢ |
+| **Payout at resolution** | **100¢** |
+| **Profit locked in** | **3.3¢ per pair ($33 on 1,000 contracts)** |
+
+**2. Exit: the prices converge**
+
+A day later Kalshi's YES has risen to 48¢ and Polymarket's YES to 46¢, so Polymarket's NO is now 54¢.
+
+| | |
+|---|---|
+| Sell YES on Kalshi | 48¢ |
+| Sell NO on Polymarket | 54¢ |
+| **Received** | **102¢** |
+| Profit after fees on both trades | **2.6¢ per pair ($26 on 1,000 contracts)** |
+
+That clears the 2¢ `take_profit`, so the strategy sells: $26 made in a day, and the money is free for the next arbitrage opportunity.
+
+**3. If the prices never converge**
+
+The strategy simply keeps the position. At resolution one side pays $1, so it still earns the **3.3¢ locked in at entry**. That's why it never needs to sell at a loss.
+
+> Prices meeting in the middle isn't always enough on its own. Selling pays each platform's spread and fees a second time, so the strategy exits only once the round trip actually clears `take_profit`.
+
 ## Arbitrage Strategy
 
 The strategy trades the spread between the two platforms rather than waiting for the market to resolve.
