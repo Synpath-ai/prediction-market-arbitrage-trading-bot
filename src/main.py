@@ -9,20 +9,20 @@ import argparse
 import asyncio
 import signal
 
-from config import CONFIG
+from config import CONFIG, configured_markets
 
 from .bot import ArbitrageBot
 
 
 def markets_from(args: list[list[str]] | None) -> list[dict]:
     """`--market EVENT KALSHI_ID`, repeatable, in place of config.py's list."""
-    return [{"event": e, "kalshi": k} for e, k in args] if args else CONFIG["markets"]
+    return [{"event": e, "kalshi": k} for e, k in args] if args else configured_markets()
 
 
 async def run(markets: list[dict]) -> None:
     if not markets:
-        raise SystemExit("No markets configured. Find some with `python -m src.discover`, then add them to "
-                         "config.py or pass --market EVENT_ID KALSHI_ID.")
+        raise SystemExit("No markets configured. Run `python -m src.discover --save` first, "
+                         "or pass --market EVENT_ID KALSHI_ID.")
     bot = ArbitrageBot({**CONFIG, "markets": markets})
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):

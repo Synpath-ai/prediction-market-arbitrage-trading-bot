@@ -22,7 +22,7 @@ from pathlib import Path
 
 import synpath
 
-from config import CONFIG
+from config import CONFIG, configured_markets
 from src.arbitrage import Book, Pricer
 from src.matcher import resolve, tradeable
 from src.strategy import Strategy
@@ -75,10 +75,10 @@ def main() -> None:
     ap.add_argument("--market", nargs=2, action="append", metavar=("EVENT_ID", "KALSHI_ID"),
                     help="a market to test instead of config.py's list; repeatable")
     a = ap.parse_args()
-    markets = [{"event": e, "kalshi": k} for e, k in a.market] if a.market else CONFIG["markets"]
+    markets = [{"event": e, "kalshi": k} for e, k in a.market] if a.market else configured_markets()
     if not markets:
-        raise SystemExit("No markets configured. Find some with `python -m src.discover`, then add them to "
-                         "config.py or pass --market EVENT_ID KALSHI_ID.")
+        raise SystemExit("No markets configured. Run `python -m src.discover --save` first, "
+                         "or pass --market EVENT_ID KALSHI_ID.")
 
     strategy = Strategy(a.entry_edge, a.take_profit)
     until = int(time.time() * 1000) // HOUR_MS * HOUR_MS

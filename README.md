@@ -99,15 +99,13 @@ cp .env.example .env        # then set SYNPATH_API_KEY
 
 Get a key at [synpath.dev](https://www.synpath.dev). It's used for market matching, live prices and history. No exchange accounts or trading keys are needed.
 
-### 3. Choose markets
+### 3. Find markets
 
-Find markets listed on both platforms (see [Finding Arbitrage Opportunities](#finding-arbitrage-opportunities)), then add them to `config.py`:
-
-```python
-"markets": [
-    {"event": "<synpath event id>", "kalshi": "kalshi:<TICKER>"},
-],
+```bash
+python -m src.discover --save
 ```
+
+This finds markets listed on both Kalshi and Polymarket that settle under the same rules, and saves them to `markets.json`. The bot and the backtest use them automatically. Narrow the search with `--query "senate"` or `--domain election`.
 
 ### 4. Set the strategy
 
@@ -127,7 +125,7 @@ The bot doesn't ship with any markets preselected. Use the discovery tool to lis
 
 ```bash
 python -m src.discover                        # most traded events
-python -m src.discover --query "senate"       # search by keyword
+python -m src.discover --query "senate" --save  # search by keyword and save
 python -m src.discover --domain election --quotes
 ```
 
@@ -137,12 +135,12 @@ Market matching is done by Synpath, not by comparing titles. Each matched market
 - **`insufficient`**: one platform's rules don't state every detail.
 - **`not_same`**: the markets can settle differently, so it is **not** an arbitrage. Never used.
 
-The discovery tool prints entries you can paste straight into `config.py`.
+Add `--save` to keep the `same` markets in `markets.json`, which the bot and backtest then use. To pick markets by hand instead, list them in `config.py` or pass `--market EVENT_ID KALSHI_ID`.
 
 ## Usage
 
 ```bash
-python -m src.main                                      # every market in config.py
+python -m src.main                                      # every saved market
 python -m src.main --market <event_id> kalshi:<TICKER>  # a single market
 ```
 

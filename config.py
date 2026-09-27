@@ -4,12 +4,13 @@ Every market is a Kalshi listing plus the Synpath catalog event it belongs to. T
 Synpath's matching service for the Polymarket listing of the same proposition, and refuses a
 pair whose two venues' rules are not compared as the same (see src/matcher.py).
 """
+import json
+from pathlib import Path
 
 CONFIG = {
-    # Markets to trade. Each is a Kalshi listing and the Synpath catalog event it belongs to
-    # (https://www.synpath.dev/events/<event>). `python -m src.discover` lists candidates and
-    # prints entries in this shape, ready to paste:
-    #   {"event": "<catalog event id>", "kalshi": "kalshi:<TICKER>"},
+    # Markets to run. Left empty, the markets saved by `python -m src.discover --save`
+    # (markets.json) are used. Or list them here:
+    #   {"event": "<synpath event id>", "kalshi": "kalshi:<TICKER>"},
     "markets": [],
 
     # Strategy, in dollars per $1 pair (0.02 = 2c).
@@ -34,3 +35,15 @@ CONFIG = {
     "state_file": "state/positions.json",
     "trades_file": "state/trades.csv",
 }
+
+
+MARKETS_FILE = Path(__file__).parent / "markets.json"
+
+
+def configured_markets() -> list[dict]:
+    """config.py's markets, or else the ones `python -m src.discover --save` wrote."""
+    if CONFIG["markets"]:
+        return CONFIG["markets"]
+    if MARKETS_FILE.exists():
+        return [{"event": m["event"], "kalshi": m["kalshi"]} for m in json.loads(MARKETS_FILE.read_text())]
+    return []

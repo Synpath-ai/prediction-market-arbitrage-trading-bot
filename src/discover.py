@@ -4,16 +4,21 @@ the two venues' rules compare and where both venues price them now.
     python -m src.discover                         # the most traded matched events
     python -m src.discover --query "senate"        # events matching a search
     python -m src.discover --domain election --events 50 --rules same
+    python -m src.discover --query "senate" --save   # and use them
 
-Prints one line per pair and, at the end, entries ready to paste into config.py's `markets`.
+Prints one line per pair. With --save, the pairs whose rules match are written to markets.json,
+which the bot and the backtest use when config.py lists no markets.
 """
 from __future__ import annotations
 
 import argparse
+import json
 from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 import synpath
+
+from config import MARKETS_FILE
 
 from .matcher import CATALOG, Pair, resolve
 
@@ -70,6 +75,8 @@ def main() -> None:
     ap.add_argument("--rules", nargs="+", default=["same", "insufficient", "not_same", "unknown"],
                     help="rule verdicts to list (only `same` is traded by default)")
     ap.add_argument("--quotes", action="store_true", help="also read both venues' books now (slower)")
+    ap.add_argument("--save", action="store_true",
+                    help="save the `same`-rule markets to markets.json, which the bot and backtest then use")
     a = ap.parse_args()
 
     with httpx.Client(timeout=30) as http, ThreadPoolExecutor(6) as pool:
@@ -84,10 +91,12 @@ def main() -> None:
         print(line)
     same = [p for p in pairs if p.rules == "same"]
     print(f"\n{len(pairs)} pairs from {len(events)} events; {len(same)} with rules compared as `same`.")
-    if same:
-        print("\nconfig.py entries:")
-        for p in same:
-            print(f'        {{"event": "{p.event_id}", "kalshi": "{p.kalshi_id}"}},   # {p.name}')
+    if same and a.save:
+        MARKETS_FILE.write_text(json.dumps([{"event": p.event_id, "kalshi": p.kalshi_id, "name": p.name}
+                                            for p in same], indent=2))
+        print(f"Saved {len(same)} markets to {MARKETS_FILE.name}; `python -m src.main` and the backtest use them now.")
+    elif same:
+        print("Run again with --save to use them.")
 
 
 if __name__ == "__main__":
