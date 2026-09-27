@@ -206,6 +206,20 @@ def gradient_fill(ax, x, y, color: str) -> None:
     im.set_clip_path(poly)
 
 
+def peak_capital(trades: list[dict], contracts: float) -> float:
+    """The most money the trades had tied up at once: each position costs what both legs and
+    their entry fees cost, from its entry until its exit."""
+    events = []
+    for t in trades:
+        outlay = (t["cost"] + t["fees"]) * contracts
+        events += [(t["entry_ms"], outlay), (t["exit_ms"] if t["exit_ms"] is not None else float("inf"), -outlay)]
+    peak = level = 0.0
+    for _, change in sorted(events, key=lambda e: (e[0], e[1])):     # a same-hour exit frees money first
+        level += change
+        peak = max(peak, level)
+    return peak
+
+
 def pnl_chart(title: str, trades: list[dict], contracts: float, start: int, end: int, path: Path, *,
               strategy: str, footnote: str, numbered: bool) -> None:
     trades = sorted(trades, key=lambda t: t["exit_ms"])
@@ -220,14 +234,19 @@ def pnl_chart(title: str, trades: list[dict], contracts: float, start: int, end:
     ax, bx = fig.add_subplot(grid[0]), fig.add_subplot(grid[1])
     fig.text(0.02, 0.955, title, fontsize=15, fontweight="bold", color=TEXT, va="top")
     fig.text(0.02, 0.915, f"Kalshi × Polymarket  ·  {strategy}  ·  data via synpath", fontsize=10, color=MUTED, va="top")
+    capital = peak_capital(trades, contracts)
+    ret = total / capital if capital else None
     stats = [("TOTAL P&L", money(total), GAIN if total >= 0 else LOSS, f"{contracts:,.0f} contracts per leg"),
+             ("RETURN", "—" if ret is None else f"{'+' if ret >= 0 else '−'}{abs(ret) * 100:.1f}%",
+              GAIN if (ret or 0) >= 0 else LOSS, f"on ${capital:,.0f} peak capital"),
              ("PERIOD", period_text(start, end), TEXT, f"{days} days"),
              ("TRADES", f"{len(trades)}", TEXT, f"{wins} won · {len(trades) - wins} lost"),
              ("PER TRADE", money(total / len(trades)) if trades else "—", TEXT, "average round trip")]
+    xs_stats = (0.02, 0.2, 0.36, 0.62, 0.78)
     for i, (k, v, color, note) in enumerate(stats):
-        x = 0.02 + i * 0.24
+        x = xs_stats[i]
         fig.text(x, 0.855, k, fontsize=8.5, color=MUTED, fontfamily=MONO, va="top")
-        fig.text(x, 0.83, v, fontsize=22 if i == 0 else 17, fontweight="bold", color=color, fontfamily=MONO, va="top")
+        fig.text(x, 0.83, v, fontsize=22 if i < 2 else 17, fontweight="bold", color=color, fontfamily=MONO, va="top")
         fig.text(x, 0.772, note, fontsize=8.5, color=MUTED, va="top")
 
     # Running P&L: $0 when the period starts, a point at every exit, flat to the period's end.
