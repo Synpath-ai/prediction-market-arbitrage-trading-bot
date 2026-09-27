@@ -21,7 +21,7 @@ This bot:
 - **Signals entries and exits** and tracks paper positions and P&L at the quoted prices
 - **Backtests** the same strategy on historical prices and charts the results
 
-![Backtest P&L across three markets](assets/backtest_pnl.png)
+![Backtest P&L across three markets](assets/backtest-pnl.png)
 
 *Backtest of the strategy on three markets listed on both platforms: 60 days of hourly prices, 1,000 contracts per leg. **+$863.80 total P&L, a +29.4% return** on the $2,933 peak capital tied up at once, across 20 trades, every one closed at a profit. Produced with `python -m backtest.backtest` and `python -m backtest.charts --generic-names`.*
 
