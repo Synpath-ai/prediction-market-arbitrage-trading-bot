@@ -42,7 +42,7 @@ The bot does not wait months for the question to resolve. The gap between the ve
 
 A pair costs just under $1, so each entry at 1,000 contracts uses about $980, split between the two venues (about $3,000 at most with all three markets open).
 
-### TX-15 House, Aug 3 – 16
+### TX-15 House, Aug 5 – 14
 
 ![TX-15 entries and exits](assets/tx15_entries.png)
 ![TX-15 P&L](assets/tx15_pnl.png)
@@ -106,7 +106,7 @@ Backtest and charts:
 
 ```bash
 python -m backtest.backtest --days 60
-python -m backtest.charts --market kalshi:HOUSETX15-26-R --start 2026-08-03 --end 2026-08-16
+python -m backtest.charts --market kalshi:HOUSETX15-26-R --start 2026-08-05 --end 2026-08-14
 python -m backtest.charts --market kalshi:KXGOVAK-26-JKRE --start 2026-08-08 --end 2026-08-29 --by-close
 ```
 
