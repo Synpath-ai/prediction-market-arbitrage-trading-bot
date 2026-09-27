@@ -52,7 +52,7 @@ A pair costs just under $1, so each entry at 1,000 contracts uses about $980, sp
 ![Alaska entries and exits](assets/alaska_entries.png)
 ![Alaska P&L](assets/alaska_pnl.png)
 
-Each ENTRY tag shows the edge the pair locked after fees, per $1. ENTRY n / EXIT n on the price chart is bar #n on the P&L chart. A period keeps the trades that opened and closed inside it.
+Each ENTRY tag shows the edge the pair locked after fees, per $1. ENTRY n / EXIT n on the price chart is bar #n on the P&L chart. The TX-15 period keeps the trades that opened and closed inside it; the Alaska period counts the trades that closed inside it (P&L counted when realized), so its trade #1, opened Aug 7, is included.
 
 **Read the backtest with its limits:**
 - Hourly data: the bot checks every minute, the backtest once an hour.
@@ -107,6 +107,7 @@ Backtest and charts:
 ```bash
 python -m backtest.backtest --days 60
 python -m backtest.charts --market kalshi:HOUSETX15-26-R --start 2026-08-03 --end 2026-08-16
+python -m backtest.charts --market kalshi:KXGOVAK-26-JKRE --start 2026-08-08 --end 2026-08-29 --by-close
 ```
 
 ## How It Works

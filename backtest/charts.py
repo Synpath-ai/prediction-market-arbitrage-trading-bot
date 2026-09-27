@@ -3,13 +3,16 @@
     python -m backtest.charts                                            # every market, whole backtest
     python -m backtest.charts --market kalshi:HOUSETX15-26-R --start 2026-08-03 --end 2026-08-16
     python -m backtest.charts --best                                     # each market's best 4-6 trades
+    python -m backtest.charts --market kalshi:KXGOVAK-26-JKRE --start 2026-08-08 --end 2026-08-29 --by-close
 
 For each market, two charts of the same trades:
   out/entries_<ticker>[_<period>].png   both venues' prices, the spread between them shaded, every
                                         ENTRY n tagged with the edge it locked and every EXIT n
   out/pnl_<ticker>[_<period>].png       total and period, the running P&L, and each trade as bar #n
 and, without --market, out/pnl_all[_<period>].png for the markets together. A period keeps the
-trades that opened and closed inside it; the footnote always gives the whole backtest's total.
+trades that opened and closed inside it, or with --by-close the trades that closed inside it (P&L
+counted when realized; the footnote names any that opened earlier). The footnote always gives the
+whole backtest's total.
 """
 from __future__ import annotations
 
@@ -294,7 +297,11 @@ def pnl_chart(title: str, trades: list[dict], contracts: float, start: int, end:
         if not many:
             items += [(money(y), (x, y), spots, plain) for x, y in zip(xs[1:-2], ys[1:-2])]
     place(fig, ax, items, point_boxes(ax, list(zip(xs[:-1], ys[:-1]))), pad=2)
-    fig.text(0.975, 0.018, footnote, ha="right", fontsize=7.8, color=MUTED, fontfamily=MONO)
+    if len(footnote) > 150:          # too long for one line: the caveats go on a second
+        head, _, tail = footnote.partition("  ·  hourly backtest")
+        footnote = f"{head}\nhourly backtest{tail}" if tail else footnote
+    fig.text(0.975, 0.012, footnote, ha="right", va="bottom", fontsize=7.8, color=MUTED, fontfamily=MONO,
+             linespacing=1.6)
     fig.savefig(path, dpi=160, facecolor=BG)
     plt.close(fig)
     print(path)
@@ -309,6 +316,9 @@ def main() -> None:
     ap.add_argument("--start", help="first day, YYYY-MM-DD (UTC)")
     ap.add_argument("--end", help="last day, YYYY-MM-DD (UTC)")
     ap.add_argument("--best", action="store_true", help="each market's best run of 4-6 consecutive trades")
+    ap.add_argument("--by-close", action="store_true",
+                    help="a period counts the trades that closed in it (P&L counted when realized), "
+                         "even one opened before it; the price chart starts early enough to show its entry")
     a = ap.parse_args()
 
     data = json.loads(Path(a.file).read_text())
@@ -333,12 +343,19 @@ def main() -> None:
             start = max(series_start, min(t["entry_ms"] for t in shown) - 12 * HOUR_MS)
             end = min(series_end, max(t["exit_ms"] for t in shown) + 12 * HOUR_MS)
             where = f"trades {i + 1}–{i + n} of {len(closed)}"
+        elif a.by_close:
+            shown = [t for t in closed if start <= t["exit_ms"] <= end]
+            early = [n for n, t in enumerate(shown, 1) if t["entry_ms"] < start]
+            where = (f"{len(shown)} of {len(pair['trades'])} trades, those closed in the period (P&L counted when realized)"
+                     + "".join(f"; #{n} opened {dt(shown[n - 1]['entry_ms']):%b %d}" for n in early))
         else:
             # Trades that opened and closed inside the period; one still held counts if it opened inside.
             shown = [t for t in pair["trades"] if start <= t["entry_ms"] and (t["exit_ms"] or series_end) <= end]
             where = f"{len(shown)} of {len(pair['trades'])} trades, those opened and closed in the period"
         ticker = pair["kalshi_id"].split(":", 1)[1]
-        entries_chart(pair, shown, start, end, OUT / f"entries_{ticker}{tag}.png", strategy=strategy, source=source,
+        # The price chart reaches back to the earliest entry it shows.
+        chart_start = max(series_start, min([start] + [t["entry_ms"] - 12 * HOUR_MS for t in shown]))
+        entries_chart(pair, shown, chart_start, end, OUT / f"entries_{ticker}{tag}.png", strategy=strategy, source=source,
                       note=where)
         done = [t for t in shown if t["exit_ms"] is not None]
         held = [t for t in shown if t["exit_ms"] is None]
