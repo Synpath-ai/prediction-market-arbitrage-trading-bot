@@ -42,7 +42,7 @@ The bot does not wait months for the question to resolve. The gap between the ve
 
 A pair costs just under $1, so each entry at 1,000 contracts uses about $980, split between the two venues (about $3,000 at most with all three markets open).
 
-### TX-15 House, Aug 5 – 14
+### TX-15 House, Aug 11 – 14
 
 ![TX-15 entries and exits](assets/tx15_entries.png)
 ![TX-15 P&L](assets/tx15_pnl.png)
@@ -52,7 +52,7 @@ A pair costs just under $1, so each entry at 1,000 contracts uses about $980, sp
 ![Alaska entries and exits](assets/alaska_entries.png)
 ![Alaska P&L](assets/alaska_pnl.png)
 
-Each ENTRY tag shows the edge the pair locked after fees, per $1. ENTRY n / EXIT n on the price chart is bar #n on the P&L chart. The TX-15 period keeps the trades that opened and closed inside it; the Alaska period counts the trades that closed inside it (P&L counted when realized), so its trade #1, opened Aug 7, is included.
+Each ENTRY tag shows the edge the pair locked after fees, per $1. ENTRY n / EXIT n on the price chart is bar #n on the P&L chart. Both periods count the trades that closed inside them (P&L counted when realized), so a trade opened earlier is included and the footnote says when it opened (TX-15 #1 opened Aug 5, Alaska #1 Aug 7).
 
 **Read the backtest with its limits:**
 - Hourly data: the bot checks every minute, the backtest once an hour.
@@ -106,7 +106,7 @@ Backtest and charts:
 
 ```bash
 python -m backtest.backtest --days 60
-python -m backtest.charts --market kalshi:HOUSETX15-26-R --start 2026-08-05 --end 2026-08-14
+python -m backtest.charts --market kalshi:HOUSETX15-26-R --start 2026-08-11 --end 2026-08-14 --by-close
 python -m backtest.charts --market kalshi:KXGOVAK-26-JKRE --start 2026-08-08 --end 2026-08-29 --by-close
 ```
 

@@ -1,7 +1,7 @@
 """Charts of a backtest (out/backtest.json from backtest/backtest.py).
 
     python -m backtest.charts                                            # every market, whole backtest
-    python -m backtest.charts --market kalshi:HOUSETX15-26-R --start 2026-08-05 --end 2026-08-14
+    python -m backtest.charts --market kalshi:HOUSETX15-26-R --start 2026-08-11 --end 2026-08-14 --by-close
     python -m backtest.charts --best                                     # each market's best 4-6 trades
     python -m backtest.charts --market kalshi:KXGOVAK-26-JKRE --start 2026-08-08 --end 2026-08-29 --by-close
 
