@@ -47,7 +47,7 @@ A pair costs just under $1, so each entry at 1,000 contracts uses about $980, sp
 ![TX-15 entries and exits](assets/tx15_entries.png)
 ![TX-15 P&L](assets/tx15_pnl.png)
 
-### Alaska Governor, Aug 8 – 28
+### Alaska Governor, Aug 8 – 29
 
 ![Alaska entries and exits](assets/alaska_entries.png)
 ![Alaska P&L](assets/alaska_pnl.png)
