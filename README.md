@@ -1,8 +1,16 @@
 # Prediction Market Arbitrage Trading Bot
 
-An open-source arbitrage strategy for **Kalshi** and **Polymarket**: it finds arbitrage opportunities, runs the strategy on live prices as paper trading, and backtests it on history. No orders are placed. Built on [Synpath](https://www.synpath.dev), a unified API for prediction markets.
+[![Powered by Synpath](https://img.shields.io/badge/Powered%20by-Synpath-7c3aed?style=for-the-badge)](https://www.synpath.dev)
+![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
+![Paper trading only](https://img.shields.io/badge/Paper%20trading-no%20real%20orders-orange?style=for-the-badge)
 
-> **Disclaimer:** Not financial advice. For research and educational purposes only.
+An open-source arbitrage strategy for **Kalshi** and **Polymarket**: it finds arbitrage opportunities, runs the strategy on live prices as paper trading, and backtests it on history. No orders are placed.
+
+**Powered by [Synpath](https://www.synpath.dev)**, one API for prediction markets. Synpath matches the same market across Kalshi and Polymarket and supplies the live order books, fee schedules and price history this bot runs on.
+
+> [!WARNING]
+> **Not financial advice. For research and educational purposes only.**
+> This project does not place trades and makes no promise of profit. Backtest and paper-trading results are simulated and do not predict real returns. Read the full [Disclaimer](#disclaimer) before using it.
 
 ---
 
@@ -60,19 +68,15 @@ The bot automates this process across Polymarket and Kalshi.
 
 ## Arbitrage Strategy
 
-The strategy trades the spread between the two platforms rather than waiting for the market to resolve.
+Three simple rules:
 
-| Step | Condition | Action |
-|---|---|---|
-| **Entry** | YES + NO + fees ≤ $1 − `entry_edge` | Buy YES on the cheaper platform and NO on the other |
-| **Exit** | Selling both legs nets ≥ `take_profit` after fees | Sell both legs and realize the profit |
-| **Hold** | Neither condition is met | Keep the position, since at resolution it still pays $1 per pair |
+1. **Buy** when YES on one platform plus NO on the other costs at least **2¢ less than $1**, after fees.
+2. **Sell** both sides as soon as selling them makes at least **2¢ profit** per pair, after fees.
+3. **Otherwise hold** until settlement, where the pair pays $1 and the profit locked in at entry is collected.
 
-Because the position is only closed at a profit, and otherwise held until resolution, **it never sells at a loss**. The profit locked in at entry is the worst case.
+So the strategy **never sells at a loss**. YES and NO are always bought in the same quantity, so the position stays balanced, and the size is limited to what's available at the best price on each platform.
 
-**Position sizing:**
-- YES and NO are always the **same number of contracts**, so the position stays hedged.
-- Size is capped by the liquidity at the best price on both platforms.
+Both 2¢ thresholds can be changed in `config.py` (`entry_edge` and `take_profit`).
 
 ## Setup
 
@@ -178,10 +182,31 @@ prediction-market-arbitrage-trading-bot/
 └── tests/               # Offline unit tests
 ```
 
-## Powered By
+## Powered by Synpath
 
-- [Synpath](https://www.synpath.dev): unified API for Kalshi and Polymarket (market matching, order books, fees, history)
-- Python
+[![Synpath](https://img.shields.io/badge/Synpath-synpath.dev-7c3aed?style=for-the-badge)](https://www.synpath.dev)
+
+This bot is built on **[Synpath](https://www.synpath.dev)**, one API for every prediction market. Synpath provides everything the strategy needs, for both Kalshi and Polymarket:
+
+- **Market matching:** finds the same market on both platforms and checks that they settle under the same rules
+- **Live order books:** best bid and ask, with size, on both platforms
+- **Fee schedules:** each platform's real trading fees, so every profit figure is after fees
+- **Price history:** the data behind the backtest
+
+Get an API key at **[synpath.dev](https://www.synpath.dev)**.
+
+## Disclaimer
+
+**Read this before using this project.**
+
+- **Not financial advice.** Nothing in this repository is investment, financial, legal or tax advice, or a recommendation to buy or sell anything.
+- **Educational and research use only.** The code is provided to demonstrate a strategy, not as a trading product.
+- **No trading.** The bot only paper trades: it records simulated positions at quoted prices and never places real orders.
+- **Simulated results.** Backtest and paper-trading results use historical or quoted prices and assume every order fills at those prices. Real trading involves slippage, partial fills, delays and liquidity limits, and results can be very different. Past performance does not predict future results.
+- **No guarantee of profit.** "Locked-in" profit depends on both platforms settling the market the same way. Rules can differ, markets can be disputed or voided, and you can lose money.
+- **Check the rules where you live.** Prediction markets are restricted or prohibited in some jurisdictions. You are responsible for complying with the laws that apply to you and with each platform's terms of service.
+- **Not affiliated.** This project is not affiliated with, endorsed by, or sponsored by Kalshi or Polymarket.
+- **Use at your own risk.** The software is provided "as is", without warranty of any kind (see the MIT license). The authors are not liable for any loss arising from its use.
 
 ## License
 
