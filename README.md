@@ -105,7 +105,9 @@ Get a key at [synpath.dev](https://www.synpath.dev). It's used for market matchi
 python -m src.discover --save
 ```
 
-This finds markets listed on both Kalshi and Polymarket that settle under the same rules, and saves them to `markets.json`. The bot and the backtest use them automatically. Narrow the search with `--query "senate"` or `--domain election`.
+This finds the **10 most traded markets** listed on both Kalshi and Polymarket that settle under the same rules, and saves them to `markets.json`. The bot and the backtest use them automatically.
+
+Change what it picks with `--limit 20`, `--sort edge` (best profit available right now) or `--sort gap` (largest price difference right now), and narrow the search with `--query "senate"` or `--domain election`.
 
 ### 4. Set the strategy
 
@@ -124,9 +126,9 @@ Adjust the rest of `config.py` to taste:
 The bot doesn't ship with any markets preselected. Use the discovery tool to list markets that trade on both platforms:
 
 ```bash
-python -m src.discover                        # most traded events
+python -m src.discover                        # 10 most traded markets
+python -m src.discover --sort edge --limit 5  # best profit available right now
 python -m src.discover --query "senate" --save  # search by keyword and save
-python -m src.discover --domain election --quotes
 ```
 
 Market matching is done by Synpath, not by comparing titles. Each matched market comes with a rule check:
