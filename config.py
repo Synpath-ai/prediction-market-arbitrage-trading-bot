@@ -6,12 +6,11 @@ pair whose two venues' rules are not compared as the same (see src/matcher.py).
 """
 
 CONFIG = {
-    # Markets to trade: the Kalshi listing and its event on https://www.synpath.dev/events/<event>.
-    "markets": [
-        {"event": "284999d5-9859-4789-8f16-a8998ff05551", "kalshi": "kalshi:KXGOVAK-26-JKRE"},   # Alaska Governor
-        {"event": "737088c1-d043-4ae8-bf24-d0194bb4818a", "kalshi": "kalshi:HOUSETX15-26-R"},    # TX-15 House
-        {"event": "71143731-5474-4aec-b144-f783dadc39cc", "kalshi": "kalshi:GOVPARTYTX-26-R"},   # Texas Governor
-    ],
+    # Markets to trade. Each is a Kalshi listing and the Synpath catalog event it belongs to
+    # (https://www.synpath.dev/events/<event>). `python -m src.discover` lists candidates and
+    # prints entries in this shape, ready to paste:
+    #   {"event": "<catalog event id>", "kalshi": "kalshi:<TICKER>"},
+    "markets": [],
 
     # Strategy, in dollars per $1 pair (0.02 = 2c).
     # Enter when buying YES on one venue and NO on the other locks at least this after taker fees.

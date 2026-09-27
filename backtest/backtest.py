@@ -1,6 +1,7 @@
 """Backtest the strategy on each configured pair's hourly history.
 
     python -m backtest.backtest                     # 60 days, config.py's markets and settings
+    python -m backtest.backtest --market <event id> kalshi:<TICKER>
     python -m backtest.backtest --days 90 --source trades
 
 Hour by hour, one position per pair, with the same Pricer and Strategy the live bot uses: enter
@@ -71,7 +72,13 @@ def main() -> None:
     ap.add_argument("--contracts", type=float, default=CONFIG["contracts"])
     ap.add_argument("--entry-edge", type=float, default=CONFIG["entry_edge"])
     ap.add_argument("--take-profit", type=float, default=CONFIG["take_profit"])
+    ap.add_argument("--market", nargs=2, action="append", metavar=("EVENT_ID", "KALSHI_ID"),
+                    help="a market to test instead of config.py's list; repeatable")
     a = ap.parse_args()
+    markets = [{"event": e, "kalshi": k} for e, k in a.market] if a.market else CONFIG["markets"]
+    if not markets:
+        raise SystemExit("No markets configured. Find some with `python -m src.discover`, then add them to "
+                         "config.py or pass --market EVENT_ID KALSHI_ID.")
 
     strategy = Strategy(a.entry_edge, a.take_profit)
     until = int(time.time() * 1000) // HOUR_MS * HOUR_MS
@@ -81,7 +88,7 @@ def main() -> None:
            "strategy": strategy.describe(), "pairs": []}
     print(f"{strategy.describe()}  ·  {a.contracts:g} contracts  ·  {a.days}d hourly, Polymarket {a.source}\n")
     total = 0.0
-    for market in CONFIG["markets"]:
+    for market in markets:
         pair = resolve(market["event"], market["kalshi"])
         if not tradeable(pair, require_same=CONFIG["require_same_rules"]):
             print(f"skip {pair.name}: rules '{pair.rules}'")

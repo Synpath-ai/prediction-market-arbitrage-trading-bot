@@ -23,17 +23,17 @@ CATALOG = "https://api.synpath.dev"
 @dataclass(frozen=True)
 class Pair:
     event_id: str
-    event: str          # "Alaska Governor Election Winner"
-    outcome: str        # "Jonathan Kreiss Tomkins"
-    kalshi_id: str      # "kalshi:KXGOVAK-26-JKRE"
-    poly_id: str        # "polymarket:635016"
+    event: str          # the catalog event title
+    outcome: str        # the outcome this pair prices
+    kalshi_id: str      # "kalshi:<TICKER>"
+    poly_id: str        # "polymarket:<market id>"
     flipped: bool       # Polymarket's YES pays when this proposition is false
     rules: str          # "same", "insufficient", "not_same" or "unknown"
     rules_reason: str | None = None
 
     @property
     def name(self) -> str:
-        return f"{self.event.replace(' Election Winner', '')} · {self.outcome}"
+        return f"{self.event} · {self.outcome}"
 
 
 def resolve(event_id: str, kalshi_id: str, *, http: httpx.Client | None = None) -> Pair:

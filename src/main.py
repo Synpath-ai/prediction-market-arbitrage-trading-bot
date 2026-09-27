@@ -2,6 +2,7 @@
 
     python -m src.main          # dry run: prices and decisions, no orders
     python -m src.main --live   # sends orders; needs both venues' credentials in .env
+    python -m src.main --market <event id> kalshi:<TICKER>   # one market, instead of config.py
 """
 from __future__ import annotations
 
@@ -17,8 +18,16 @@ from config import CONFIG
 from .bot import ArbitrageBot
 
 
-async def run(live: bool) -> None:
-    config = {**CONFIG, "dry_run": CONFIG["dry_run"] and not live}
+def markets_from(args: list[list[str]] | None) -> list[dict]:
+    """`--market EVENT KALSHI_ID`, repeatable, in place of config.py's list."""
+    return [{"event": e, "kalshi": k} for e, k in args] if args else CONFIG["markets"]
+
+
+async def run(live: bool, markets: list[dict]) -> None:
+    if not markets:
+        raise SystemExit("No markets configured. Find some with `python -m src.discover`, then add them to "
+                         "config.py or pass --market EVENT_ID KALSHI_ID.")
+    config = {**CONFIG, "markets": markets, "dry_run": CONFIG["dry_run"] and not live}
     async with AsyncExitStack() as stack:
         trading = {}
         if not config["dry_run"]:
@@ -36,7 +45,10 @@ async def run(live: bool) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description="Kalshi x Polymarket cross-venue arbitrage bot")
     ap.add_argument("--live", action="store_true", help="send real orders (default: dry run)")
-    asyncio.run(run(ap.parse_args().live))
+    ap.add_argument("--market", nargs=2, action="append", metavar=("EVENT_ID", "KALSHI_ID"),
+                    help="a market to trade instead of config.py's list; repeatable")
+    a = ap.parse_args()
+    asyncio.run(run(a.live, markets_from(a.market)))
 
 
 if __name__ == "__main__":
