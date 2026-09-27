@@ -1,0 +1,5 @@
+synpath
+httpx>=0.27
+matplotlib>=3.8
+numpy>=1.26
+pytest>=8
