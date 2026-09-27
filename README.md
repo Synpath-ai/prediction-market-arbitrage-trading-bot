@@ -35,34 +35,36 @@ This bot:
 
 ## How Cross-Platform Arbitrage Works
 
-> **Find the same event priced differently → buy both sides for less than $1 → exit when profitable, or hold to settlement.**
+Polymarket and Kalshi sometimes price the same event differently.
 
-Polymarket and Kalshi sometimes price the same event differently. Every contract pays **$1** if it's right and **$0** if not, so holding **YES on one platform and NO on the other** always pays exactly **$1** at settlement. If both sides together cost less than $1, the difference is profit.
+The bot looks for cases where it can buy **YES on one platform** and **NO on the other** for a combined cost of less than $1.
 
-### Example: 1,000 contracts
+Because exactly one side will pay $1 at settlement, buying both sides below $1 creates a built-in profit.
 
-**Step 1: Buy both sides for less than $1**
+### Simple example
 
-| | Price |
-|---|---|
-| YES on Kalshi | 39¢ |
-| NO on Polymarket | 55¢ |
-| Fees | 2.7¢ |
-| **Total cost** | **96.7¢** |
-| Pays at settlement | $1.00 |
-| **Profit locked in** | **3.3¢ per pair ≈ $33** |
+Suppose:
 
-**Step 2: Sell early if the prices converge**
+- YES on Kalshi = **39¢**
+- NO on Polymarket = **55¢**
 
-If the gap closes before settlement and both sides can be sold for a combined **$1.02**, the bot sells.
+Buying both costs **94¢**. After fees, the total cost is about **96.7¢**.
 
-**Profit: 2.6¢ per pair after fees ≈ $26**, and the capital is free for the next opportunity.
+At settlement, one of the two positions will pay **$1**, so the trade locks in roughly **3.3¢ profit per contract pair**. On 1,000 contracts, that's about **$33**.
 
-**Step 3: Otherwise, hold to settlement**
+### The bot doesn't always need to wait
 
-If the prices don't converge, the bot keeps the position. At settlement it collects the **3.3¢ per pair (≈ $33)** locked in at entry.
+If the price difference disappears before the event settles, the bot can close both positions early and take the profit.
 
-The bot automates all three steps across Polymarket and Kalshi.
+For example, if the two positions can later be sold for a combined **$1.02**, that's about **2.6¢ profit per pair after fees** (about $26 on 1,000 contracts). The bot exits and frees up the capital for the next opportunity.
+
+If prices don't converge, it simply holds until settlement and collects the spread it locked in at entry.
+
+### In short
+
+**Find the same event priced differently → buy both sides for less than $1 → exit when profitable or hold to settlement.**
+
+The bot automates this process across Polymarket and Kalshi.
 
 ## Arbitrage Strategy
 
