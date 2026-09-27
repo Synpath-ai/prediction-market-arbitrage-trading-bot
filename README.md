@@ -1,6 +1,6 @@
 # Prediction Market Arbitrage Trading Bot
 
-An open-source bot that finds and trades arbitrage opportunities between **Kalshi** and **Polymarket**, with a backtester for the same strategy. Built on [Synpath](https://www.synpath.dev), a unified API for prediction markets.
+An open-source arbitrage strategy for **Kalshi** and **Polymarket**: it finds arbitrage opportunities, runs the strategy on live prices as paper trading, and backtests it on history. No orders are placed. Built on [Synpath](https://www.synpath.dev), a unified API for prediction markets.
 
 > **Disclaimer:** Not financial advice. For research and educational purposes only.
 
@@ -18,13 +18,12 @@ This bot:
 
 - **Matches markets** across both platforms and checks that they settle under the same rules
 - **Detects arbitrage opportunities** from live order books, after fees
-- **Executes both legs** at the same time, in equal size
-- **Exits the position** once the spread converges and the profit target is reached
+- **Signals entries and exits** and tracks paper positions and P&L at the quoted prices
 - **Backtests** the same strategy on historical prices and charts the results
 
 ## Arbitrage Strategy
 
-The bot trades the spread between the two platforms rather than waiting for the market to resolve.
+The strategy trades the spread between the two platforms rather than waiting for the market to resolve.
 
 | Step | Condition | Action |
 |---|---|---|
@@ -34,11 +33,9 @@ The bot trades the spread between the two platforms rather than waiting for the 
 
 Because the position is only closed at a profit, and otherwise held until resolution, **it never sells at a loss**. The profit locked in at entry is the worst case.
 
-**Execution details:**
-- Both legs are sent together as **immediate-or-cancel limit orders** at the quoted prices, so no order rests on the book and nothing fills worse than quoted.
-- YES and NO are always bought in the **same number of contracts**, so the position stays hedged.
-- If one leg fills more than the other, the excess is sold back immediately.
-- Order size is capped by the liquidity at the best price on both platforms.
+**Position sizing:**
+- YES and NO are always the **same number of contracts**, so the position stays hedged.
+- Size is capped by the liquidity at the best price on both platforms.
 
 ## Setup
 
@@ -53,20 +50,13 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Add credentials
+### 2. Add your Synpath API key
 
 ```bash
-cp .env.example .env
+cp .env.example .env        # then set SYNPATH_API_KEY
 ```
 
-| Variable | Needed for | Where to get it |
-|---|---|---|
-| `SYNPATH_API_KEY` | Market matching, history | [synpath.dev](https://www.synpath.dev) |
-| `KALSHI_KEY_ID`, `KALSHI_PRIVATE_KEY_PATH` | Live trading on Kalshi | Kalshi → Account → API Keys (download the `.pem` file) |
-| `KALSHI_ENV` | Choosing `prod` or `demo` | `demo` trades on Kalshi's practice exchange |
-| `POLYMARKET_PRIVATE_KEY`, `POLYMARKET_SIGNATURE_TYPE`, `POLYMARKET_FUNDER` | Live trading on Polymarket | Your Polymarket wallet: its private key, wallet type, and funding address |
-
-Dry runs and backtests only need `SYNPATH_API_KEY`. Keys stay on your machine and orders go directly to each platform.
+Get a key at [synpath.dev](https://www.synpath.dev). It's used for market matching, live prices and history. No exchange accounts or trading keys are needed.
 
 ### 3. Choose markets
 
@@ -89,11 +79,6 @@ Adjust the rest of `config.py` to taste:
 | `contracts` | Contracts per leg (capped by available liquidity) | `1000` |
 | `require_same_rules` | Only trade markets whose rules match | `True` |
 | `poll_interval_seconds` | Seconds between price checks | `60` |
-| `dry_run` | Log decisions without placing orders | `True` |
-
-### 5. Fund both accounts
-
-Each position buys one leg on each platform, so both accounts need a balance. A position costs just under `contracts` × $1, split between Kalshi and Polymarket according to the prices.
 
 ## Finding Arbitrage Opportunities
 
@@ -107,24 +92,20 @@ python -m src.discover --domain election --quotes
 
 Market matching is done by Synpath, not by comparing titles. Each matched market comes with a rule check:
 
-- **`same`**: both platforms settle the market the same way. These are the only markets traded by default.
+- **`same`**: both platforms settle the market the same way. These are the only markets used by default.
 - **`insufficient`**: one platform's rules don't state every detail.
-- **`not_same`**: the markets can settle differently, so it is **not** an arbitrage. Never traded.
+- **`not_same`**: the markets can settle differently, so it is **not** an arbitrage. Never used.
 
 The discovery tool prints entries you can paste straight into `config.py`.
 
 ## Usage
 
 ```bash
-python -m src.main                                      # dry run (no orders)
-python -m src.main --market <event_id> kalshi:<TICKER>  # trade a single market
-python -m src.main --live                               # live trading
-python -m src.main --live --approve                     # first live run only
+python -m src.main                                      # every market in config.py
+python -m src.main --market <event_id> kalshi:<TICKER>  # a single market
 ```
 
-On the first live run, Polymarket needs a one-time approval that lets its exchange use your wallet's funds. `--approve` sends it (one wallet transaction). Later runs don't need it.
-
-In dry run mode, the bot reads live prices and logs every decision without sending orders. Open positions are saved to `state/positions.json`, so the bot resumes them after a restart, and every completed trade is recorded in `state/trades.csv`.
+Every poll, the bot reads both platforms' live order books, prices both combinations, and prints what the strategy does: an **entry** signal opens a paper position at the quoted prices, an **exit** signal closes it at the bids and records the profit, and otherwise it reports the position being held. Paper positions are saved to `state/positions.json`, so they carry over after a restart, and every completed trade is recorded in `state/trades.csv`.
 
 ## Backtesting
 
@@ -148,7 +129,7 @@ prediction-market-arbitrage-trading-bot/
 ├── config.py            # Markets, strategy parameters, position size
 ├── src/
 │   ├── main.py          # Entry point
-│   ├── bot.py           # Trading loop, order execution, position state
+│   ├── bot.py           # Live strategy loop, paper positions and trades
 │   ├── strategy.py      # Entry and exit rules
 │   ├── arbitrage.py     # Arbitrage pricing, fees, profit calculation
 │   ├── matcher.py       # Cross-platform market matching and rule check
@@ -160,19 +141,17 @@ prediction-market-arbitrage-trading-bot/
 └── tests/               # Offline unit tests
 ```
 
-## Risks & Limitations
+## Limitations
 
-- **Execution risk:** the two legs fill on different platforms, and prices can move between them.
-- **Liquidity:** many markets have thin order books; large orders will not fill at the best price.
+- **Paper results are not fills:** trades are recorded at the quoted top-of-book prices. A real order could move the price or fill partly, and the two legs would fill on different platforms at slightly different times.
+- **Liquidity:** many markets have thin order books; position size is capped by the size quoted at the best price.
 - **Capital lock-up:** a position that never reaches the profit target is held until resolution.
 - **Settlement risk:** the arbitrage only holds if both platforms resolve the market the same way. Always read both platforms' rules.
 - **Backtest assumptions:** hourly data, Polymarket's historical price used as both bid and ask, and fills assumed at the quoted price.
 
-Start with a small position size and verify the bot's behavior before scaling up.
-
 ## Powered By
 
-- [Synpath](https://www.synpath.dev): unified API for Kalshi and Polymarket (market matching, order books, fees, history, order entry)
+- [Synpath](https://www.synpath.dev): unified API for Kalshi and Polymarket (market matching, order books, fees, history)
 - Python
 
 ## License

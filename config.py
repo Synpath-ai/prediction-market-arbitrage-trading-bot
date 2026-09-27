@@ -19,8 +19,8 @@ CONFIG = {
     # Otherwise hold: the pair pays exactly $1 at resolution, so it keeps the edge locked at entry.
     "take_profit": 0.02,
 
-    # Size: contracts per leg, the same number of YES and NO so the pair is hedged. The bot also
-    # never takes more than the size quoted at the best price on either leg.
+    # Size: contracts per leg, the same number of YES and NO so the pair is hedged, never more than
+    # the size quoted at the best price on either leg.
     "contracts": 1000,
 
     # Only trade pairs whose rules the catalog compares as the same (`same`). Setting this to
@@ -30,10 +30,7 @@ CONFIG = {
     # Seconds between checks.
     "poll_interval_seconds": 60,
 
-    # No orders are sent in a dry run: fills are assumed at the quoted prices and logged.
-    "dry_run": True,
-
-    # Where the bot keeps its open positions and its closed trades between runs.
+    # Where the paper positions and closed trades are kept between runs.
     "state_file": "state/positions.json",
     "trades_file": "state/trades.csv",
 }
