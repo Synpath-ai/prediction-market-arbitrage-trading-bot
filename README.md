@@ -21,6 +21,10 @@ This bot:
 - **Signals entries and exits** and tracks paper positions and P&L at the quoted prices
 - **Backtests** the same strategy on historical prices and charts the results
 
+![Backtest P&L across three markets](assets/backtest_pnl.png)
+
+*Backtest of the strategy on three markets listed on both platforms: 60 days of hourly prices, 1,000 contracts per leg. Every trade closed at a profit. Produced with `python -m backtest.backtest` and `python -m backtest.charts --generic-names`.*
+
 ## How Cross-Platform Arbitrage Works
 
 Every prediction market contract pays **$1** if its outcome happens and **$0** if not. So if you hold **YES on one platform and NO on the other** for the same outcome, exactly one of them pays out: the pair is worth $1 no matter what happens.
@@ -163,7 +167,7 @@ The backtest runs the same strategy code on hourly price history and reports the
 - **Prices:** both platforms' prices, with the spread shaded and every entry and exit marked
 - **P&L:** cumulative P&L, with the profit of each trade
 
-Options: `--by-close` counts trades by the date they closed, and `--best` shows each market's best run of consecutive trades.
+Options: `--by-close` counts trades by the date they closed, `--best` shows each market's best run of consecutive trades, and `--generic-names` labels markets as Market A, B, C for sharing.
 
 ## Project Layout
 

@@ -260,7 +260,8 @@ def pnl_chart(title: str, trades: list[dict], contracts: float, start: int, end:
     for n, t in enumerate(trades, 1):
         market = t.get("market", "")
         if many:
-            labels.append(f"{market.split()[0]}\n{dt(t['exit_ms']):%b %d}")
+            short = market if market.startswith("Market ") else market.split()[0]
+            labels.append(f"{short}\n{dt(t['exit_ms']):%b %d}")
             continue
         held = (t["exit_ms"] - t["entry_ms"]) / HOUR_MS
         head = f"#{n}  ·  {market}" if numbered else market
@@ -316,6 +317,8 @@ def main() -> None:
     ap.add_argument("--start", help="first day, YYYY-MM-DD (UTC)")
     ap.add_argument("--end", help="last day, YYYY-MM-DD (UTC)")
     ap.add_argument("--best", action="store_true", help="each market's best run of 4-6 consecutive trades")
+    ap.add_argument("--generic-names", action="store_true",
+                    help="label markets Market A, B, C... instead of by name (for sharing)")
     ap.add_argument("--by-close", action="store_true",
                     help="a period counts the trades that closed in it (P&L counted when realized), "
                          "even one opened before it; the price chart starts early enough to show its entry")
@@ -330,6 +333,10 @@ def main() -> None:
     tag = f"_{a.start}_{a.end}" if a.start or a.end else ("_best" if a.best else "")
     caveat = "hourly backtest, Polymarket at its quoted price, fills assumed at the quoted prices"
     together = []
+    if a.generic_names:
+        for i, pair in enumerate(pairs):
+            letter = chr(ord("A") + i)
+            pair["event"] = pair["name"] = f"Market {letter}"
     for pair in pairs:
         series_start, series_end = pair["series"][0][0], pair["series"][-1][0]
         start = day_ms(a.start) if a.start else series_start
