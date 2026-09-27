@@ -105,7 +105,7 @@ Get a key at [synpath.dev](https://www.synpath.dev). It's used for market matchi
 python -m src.discover --save
 ```
 
-This finds the **10 markets with the best arbitrage profit available right now** (after fees), among markets listed on both Kalshi and Polymarket that settle under the same rules, and saves them to `markets.json`. The bot and the backtest use them automatically.
+This finds the **10 markets with the best arbitrage profit available right now** (after fees), among markets listed on both Kalshi and Polymarket that settle under the same rules, and saves them to `markets.json`. The bot and the backtest use them automatically. It reads live prices for every candidate, so it can take a minute.
 
 Change what it picks with `--limit 20`, `--sort gap` (largest price difference right now) or `--sort volume` (most traded), and narrow the search with `--query "senate"` or `--domain election`.
 
