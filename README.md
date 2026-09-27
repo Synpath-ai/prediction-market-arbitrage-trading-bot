@@ -105,9 +105,9 @@ Get a key at [synpath.dev](https://www.synpath.dev). It's used for market matchi
 python -m src.discover --save
 ```
 
-This finds the **10 most traded markets** listed on both Kalshi and Polymarket that settle under the same rules, and saves them to `markets.json`. The bot and the backtest use them automatically.
+This finds the **10 markets with the best arbitrage profit available right now** (after fees), among markets listed on both Kalshi and Polymarket that settle under the same rules, and saves them to `markets.json`. The bot and the backtest use them automatically.
 
-Change what it picks with `--limit 20`, `--sort edge` (best profit available right now) or `--sort gap` (largest price difference right now), and narrow the search with `--query "senate"` or `--domain election`.
+Change what it picks with `--limit 20`, `--sort gap` (largest price difference right now) or `--sort volume` (most traded), and narrow the search with `--query "senate"` or `--domain election`.
 
 ### 4. Set the strategy
 
@@ -126,8 +126,8 @@ Adjust the rest of `config.py` to taste:
 The bot doesn't ship with any markets preselected. Use the discovery tool to list markets that trade on both platforms:
 
 ```bash
-python -m src.discover                        # 10 most traded markets
-python -m src.discover --sort edge --limit 5  # best profit available right now
+python -m src.discover                        # 10 markets with the best profit right now
+python -m src.discover --sort volume --limit 5  # most traded
 python -m src.discover --query "senate" --save  # search by keyword and save
 ```
 

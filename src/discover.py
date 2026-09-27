@@ -1,9 +1,9 @@
 """Find markets to trade: Kalshi listings that Polymarket lists as the same proposition, with how
 the two venues' rules compare and where both venues price them now.
 
-    python -m src.discover                         # the 10 most traded markets
+    python -m src.discover                         # the 10 markets with the best profit right now
     python -m src.discover --query "senate"        # events matching a search
-    python -m src.discover --sort edge --limit 5   # best profit available right now
+    python -m src.discover --sort volume --limit 5 # the most traded instead
     python -m src.discover --save                  # and use them
 
 Prints the top --limit pairs (10 by default) in --sort order. With --save, those whose rules
@@ -116,9 +116,9 @@ def main() -> None:
     ap.add_argument("--domain", help="election, sports, econ, fed, crypto, weather, ...")
     ap.add_argument("--events", type=int, default=30, help="events to look through")
     ap.add_argument("--limit", type=int, default=10, help="markets to list and save (default 10)")
-    ap.add_argument("--sort", choices=tuple(SORTS), default="volume",
-                    help="volume: most traded first (default); gap: largest price gap between the platforms "
-                         "now; edge: best locked profit after fees now (gap and edge read live books)")
+    ap.add_argument("--sort", choices=tuple(SORTS), default="edge",
+                    help="edge: best locked profit after fees right now (default); gap: largest price gap "
+                         "between the platforms now; volume: most traded first (fastest, no live books)")
     ap.add_argument("--min-price", type=float, default=0.05,
                     help="skip markets priced below this (default 5c): long shots can't show a real gap")
     ap.add_argument("--max-price", type=float, default=0.95, help="skip markets priced above this (default 95c)")
