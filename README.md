@@ -40,7 +40,9 @@ Because the position is only closed at a profit, and otherwise held until resolu
 - If one leg fills more than the other, the excess is sold back immediately.
 - Order size is capped by the liquidity at the best price on both platforms.
 
-## Installation
+## Setup
+
+### 1. Install
 
 Requires Python 3.10+.
 
@@ -51,13 +53,47 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-For live trading, copy the credentials template and fill in your keys:
+### 2. Add credentials
 
 ```bash
 cp .env.example .env
 ```
 
-Orders are signed and sent from your machine directly to Kalshi and Polymarket. Your keys are never shared.
+| Variable | Needed for | Where to get it |
+|---|---|---|
+| `SYNPATH_API_KEY` | Market matching, history | [synpath.dev](https://www.synpath.dev) |
+| `KALSHI_KEY_ID`, `KALSHI_PRIVATE_KEY_PATH` | Live trading on Kalshi | Kalshi → Account → API Keys (download the `.pem` file) |
+| `KALSHI_ENV` | Choosing `prod` or `demo` | `demo` trades on Kalshi's practice exchange |
+| `POLYMARKET_PRIVATE_KEY`, `POLYMARKET_SIGNATURE_TYPE`, `POLYMARKET_FUNDER` | Live trading on Polymarket | Your Polymarket wallet: its private key, wallet type, and funding address |
+
+Dry runs and backtests only need `SYNPATH_API_KEY`. Keys stay on your machine and orders go directly to each platform.
+
+### 3. Choose markets
+
+Find markets listed on both platforms (see [Finding Arbitrage Opportunities](#finding-arbitrage-opportunities)), then add them to `config.py`:
+
+```python
+"markets": [
+    {"event": "<synpath event id>", "kalshi": "kalshi:<TICKER>"},
+],
+```
+
+### 4. Set the strategy
+
+Adjust the rest of `config.py` to taste:
+
+| Option | Description | Default |
+|---|---|---|
+| `entry_edge` | Minimum profit per $1 pair, after fees, to enter | `0.02` |
+| `take_profit` | Minimum round-trip profit per pair to exit | `0.02` |
+| `contracts` | Contracts per leg (capped by available liquidity) | `1000` |
+| `require_same_rules` | Only trade markets whose rules match | `True` |
+| `poll_interval_seconds` | Seconds between price checks | `60` |
+| `dry_run` | Log decisions without placing orders | `True` |
+
+### 5. Fund both accounts
+
+Each position buys one leg on each platform, so both accounts need a balance. A position costs just under `contracts` × $1, split between Kalshi and Polymarket according to the prices.
 
 ## Finding Arbitrage Opportunities
 
@@ -83,7 +119,10 @@ The discovery tool prints entries you can paste straight into `config.py`.
 python -m src.main                                      # dry run (no orders)
 python -m src.main --market <event_id> kalshi:<TICKER>  # trade a single market
 python -m src.main --live                               # live trading
+python -m src.main --live --approve                     # first live run only
 ```
+
+On the first live run, Polymarket needs a one-time approval that lets its exchange use your wallet's funds. `--approve` sends it (one wallet transaction). Later runs don't need it.
 
 In dry run mode, the bot reads live prices and logs every decision without sending orders. Open positions are saved to `state/positions.json`, so the bot resumes them after a restart, and every completed trade is recorded in `state/trades.csv`.
 
@@ -101,20 +140,6 @@ The backtest runs the same strategy code on hourly price history and reports the
 - **P&L:** cumulative P&L, with the profit of each trade
 
 Options: `--by-close` counts trades by the date they closed, and `--best` shows each market's best run of consecutive trades.
-
-## Configuration
-
-Settings live in `config.py`:
-
-| Option | Description | Default |
-|---|---|---|
-| `markets` | Markets to trade (use `src.discover` to find them) | `[]` |
-| `entry_edge` | Minimum profit per $1 pair, after fees, to enter | `0.02` |
-| `take_profit` | Minimum round-trip profit per pair to exit | `0.02` |
-| `contracts` | Contracts per leg (capped by available liquidity) | `1000` |
-| `require_same_rules` | Only trade markets whose rules match | `True` |
-| `poll_interval_seconds` | Seconds between price checks | `60` |
-| `dry_run` | Log decisions without placing orders | `True` |
 
 ## Project Layout
 
