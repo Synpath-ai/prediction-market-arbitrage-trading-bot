@@ -2,7 +2,6 @@
 
 [![Powered by Synpath](https://img.shields.io/badge/Powered%20by-Synpath-7c3aed?style=for-the-badge)](https://www.synpath.dev)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
-![Paper trading only](https://img.shields.io/badge/Paper%20trading-no%20real%20orders-orange?style=for-the-badge)
 
 An open-source arbitrage strategy for **Kalshi** and **Polymarket**: it finds arbitrage opportunities, runs the strategy on live prices as paper trading, and backtests it on history. No orders are placed.
 
