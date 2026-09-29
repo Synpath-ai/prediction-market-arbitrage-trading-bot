@@ -1,11 +1,12 @@
 # Prediction Market Arbitrage Trading Bot
 
 [![Powered by Synpath](https://img.shields.io/badge/Powered%20by-Synpath-7c3aed?style=for-the-badge)](https://www.synpath.dev)
+[![Synpath on GitHub](https://img.shields.io/badge/GitHub-Synpath--ai%2Fsynpath-181717?style=for-the-badge&logo=github)](https://github.com/Synpath-ai/synpath)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
 
 An open-source arbitrage strategy for **Kalshi** and **Polymarket**: it finds arbitrage opportunities, runs the strategy on live prices as paper trading, and backtests it on history. No orders are placed.
 
-**Powered by [Synpath](https://www.synpath.dev)**, one API for prediction markets. Synpath matches the same market across Kalshi and Polymarket and supplies the live order books, fee schedules and price history this bot runs on.
+**Powered by [Synpath](https://www.synpath.dev)**, one API for prediction markets. Synpath matches the same market across Kalshi and Polymarket and supplies the live order books, fee schedules and price history this bot runs on. Synpath is open source: [github.com/Synpath-ai/synpath](https://github.com/Synpath-ai/synpath).
 
 > [!WARNING]
 > **Not financial advice. For research and educational purposes only.**
@@ -184,6 +185,7 @@ prediction-market-arbitrage-trading-bot/
 ## Powered by Synpath
 
 [![Synpath](https://img.shields.io/badge/Synpath-synpath.dev-7c3aed?style=for-the-badge)](https://www.synpath.dev)
+[![Synpath on GitHub](https://img.shields.io/badge/GitHub-Synpath--ai%2Fsynpath-181717?style=for-the-badge&logo=github)](https://github.com/Synpath-ai/synpath)
 
 This bot is built on **[Synpath](https://www.synpath.dev)**, one API for every prediction market. Synpath provides everything the strategy needs, for both Kalshi and Polymarket:
 
@@ -192,7 +194,7 @@ This bot is built on **[Synpath](https://www.synpath.dev)**, one API for every p
 - **Fee schedules:** each platform's real trading fees, so every profit figure is after fees
 - **Price history:** the data behind the backtest
 
-Get an API key at **[synpath.dev](https://www.synpath.dev)**.
+Get an API key at **[synpath.dev](https://www.synpath.dev)**. The Synpath SDK is open source (MIT) at **[github.com/Synpath-ai/synpath](https://github.com/Synpath-ai/synpath)**.
 
 ## Disclaimer
 
