@@ -6,9 +6,7 @@
 
 An open-source arbitrage strategy for **Kalshi** and **Polymarket**: it finds arbitrage opportunities, runs the strategy on live prices as paper trading, and backtests it on history. No orders are placed.
 
-# ⚡ Powered by [Synpath](https://www.synpath.dev): one API for every prediction market
-
-Kalshi, Polymarket, Polymarket US and Opinion through one open-source Python SDK:
+Powered by [Synpath](https://www.synpath.dev): one API for every prediction market. Kalshi, Polymarket, Polymarket US and Opinion through one open-source Python SDK:
 
 - **Smart order routing** across both order books, at the cheapest price after fees
 - **Advanced order types:** stop-limit, trailing stop, OCO, TWAP and more, on every venue
