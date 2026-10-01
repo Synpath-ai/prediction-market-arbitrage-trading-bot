@@ -6,7 +6,17 @@
 
 An open-source arbitrage strategy for **Kalshi** and **Polymarket**: it finds arbitrage opportunities, runs the strategy on live prices as paper trading, and backtests it on history. No orders are placed.
 
-**Powered by [Synpath](https://www.synpath.dev)**, one API for prediction markets. Synpath matches the same market across Kalshi and Polymarket and supplies the live order books, fee schedules and price history this bot runs on. Synpath is open source: [github.com/Synpath-ai/synpath](https://github.com/Synpath-ai/synpath).
+### ⚡ Powered by [Synpath](https://www.synpath.dev): one API for every prediction market
+
+This bot is a small example of what you can build on Synpath. Synpath gives you **Kalshi, Polymarket, Polymarket US and Opinion through one open-source Python SDK**:
+
+- **Smart order routing:** one order, both order books combined, filled from the cheapest price after fees
+- **Advanced order types on every venue:** stop, stop-limit, trailing stop, iceberg, OCO, bracket, TWAP and peg, even where the exchange has none
+- **Cross-venue market matching:** the same market found on every platform, with its settlement rules compared
+- **Unified market data and live streams:** order books, trades, fee schedules and history in one format, plus tick-level Kalshi order book history
+- **Crash-safe execution:** every order is journaled before it's sent, so a restart never places one twice
+
+Open source (MIT): **[github.com/Synpath-ai/synpath](https://github.com/Synpath-ai/synpath)** · `pip install synpath`
 
 > [!WARNING]
 > **Not financial advice. For research and educational purposes only.**
@@ -187,12 +197,18 @@ prediction-market-arbitrage-trading-bot/
 [![Synpath](https://img.shields.io/badge/Synpath-synpath.dev-7c3aed?style=for-the-badge)](https://www.synpath.dev)
 [![Synpath on GitHub](https://img.shields.io/badge/GitHub-Synpath--ai%2Fsynpath-181717?style=for-the-badge&logo=github)](https://github.com/Synpath-ai/synpath)
 
-This bot is built on **[Synpath](https://www.synpath.dev)**, one API for every prediction market. Synpath provides everything the strategy needs, for both Kalshi and Polymarket:
+This bot is built on **[Synpath](https://www.synpath.dev)**, one API for every prediction market. It uses Synpath's cross-venue market matching, live order books, fee schedules and price history.
 
-- **Market matching:** finds the same market on both platforms and checks that they settle under the same rules
-- **Live order books:** best bid and ask, with size, on both platforms
-- **Fee schedules:** each platform's real trading fees, so every profit figure is after fees
-- **Price history:** the data behind the backtest
+Synpath does much more than this bot needs:
+
+| | |
+|---|---|
+| **Venues** | Kalshi, Polymarket, Polymarket US and Opinion, through one SDK |
+| **Smart order routing** | One order across Kalshi and Polymarket, filled from the cheapest price after fees |
+| **Advanced order types** | Stop, stop-limit, trailing stop, iceberg, OCO, bracket, TWAP and peg on every venue |
+| **Market matching** | The same market on every platform, with settlement rules compared |
+| **Data** | Unified order books, trades, fees, live streams and tick-level Kalshi order book history |
+| **Execution engine** | Orders journaled before sending, pre-trade risk rules, crash-safe restarts |
 
 Get an API key at **[synpath.dev](https://www.synpath.dev)**. The Synpath SDK is open source (MIT) at **[github.com/Synpath-ai/synpath](https://github.com/Synpath-ai/synpath)**.
 
