@@ -6,9 +6,7 @@
 
 An open-source arbitrage strategy for **Kalshi** and **Polymarket**: it finds arbitrage opportunities, runs the strategy on live prices as paper trading, and backtests it on history. No orders are placed.
 
-⭐ **Find it useful? Star [this repo](https://github.com/Synpath-ai/prediction-market-arbitrage-trading-bot) and [Synpath](https://github.com/Synpath-ai/synpath).** It's how other traders find them.
-
-### ⚡ Powered by [Synpath](https://www.synpath.dev): one API for every prediction market
+# ⚡ Powered by [Synpath](https://www.synpath.dev): one API for every prediction market
 
 Kalshi, Polymarket, Polymarket US and Opinion through one open-source Python SDK:
 
