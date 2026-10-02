@@ -236,9 +236,7 @@ Get an API key at **[synpath.dev](https://www.synpath.dev)**. The Synpath SDK is
 - **Not financial advice.** Nothing in this repository is investment, financial, legal or tax advice, or a recommendation to buy or sell anything.
 - **Educational and research use only.** The code is provided to demonstrate a strategy, not as a trading product.
 - **No trading.** The bot only paper trades: it records simulated positions at quoted prices and never places real orders.
-- **Simulated results.** Backtest and paper-trading results use historical or quoted prices and assume every order fills at those prices. Real trading involves slippage, partial fills, delays and liquidity limits, and results can be very different. Past performance does not predict future results.
 - **No guarantee of profit.** "Locked-in" profit depends on both platforms settling the market the same way. Rules can differ, markets can be disputed or voided, and you can lose money.
-- **Check the rules where you live.** Prediction markets are restricted or prohibited in some jurisdictions. You are responsible for complying with the laws that apply to you and with each platform's terms of service.
 - **Not affiliated.** This project is not affiliated with, endorsed by, or sponsored by Kalshi or Polymarket.
 - **Use at your own risk.** The software is provided "as is", without warranty of any kind (see the MIT license). The authors are not liable for any loss arising from its use.
 
