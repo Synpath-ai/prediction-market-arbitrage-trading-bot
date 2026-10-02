@@ -38,7 +38,7 @@ This bot:
 
 ![Backtest P&L across three markets](assets/backtest-pnl.png)
 
-*Backtest of the strategy on three markets listed on both platforms: 60 days of 1-minute prices (Jul 29 – Sep 27, 2026), 1,000 contracts per leg. **+$1,771.40 total P&L, a +60.4% return** on the $2,934 peak capital tied up at once, across 44 trades, every one closed at a profit. Simulated: Polymarket publishes no historical order book, so its quoted price stands for both bid and ask, and every fill is assumed at the quoted price with no delay. At 1-minute resolution those assumptions flatter the result more than hourly bars did (the same window at 1-hour bars: +$863.80 across 20 trades). Produced with `python -m backtest.backtest` and `python -m backtest.charts --generic-names`.*
+*Example backtest on three markets listed on both Kalshi and Polymarket: 60 days of 1-minute prices (Jul 29 – Sep 27, 2026), 1,000 contracts per leg. **+$1,771.40 total P&L, a +60.4% return** on the $2,934 peak capital tied up at once, across 44 trades, every one closed at a profit.*
 
 ## Backtest vs. live trading
 
