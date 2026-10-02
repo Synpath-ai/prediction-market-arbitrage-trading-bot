@@ -156,7 +156,7 @@ def main() -> None:
     if a.save and same:
         MARKETS_FILE.write_text(json.dumps([{"event": p.event_id, "kalshi": p.kalshi_id, "name": p.name}
                                             for p in same], indent=2))
-        print(f"Saved {len(same)} markets to {MARKETS_FILE.name}; `python -m src.main` and the backtest use them now.")
+        print(f"Saved {len(same)} markets to {MARKETS_FILE.name}; `python -m trading` and the backtest use them now.")
     elif same:
         print("Run again with --save to use them.")
 

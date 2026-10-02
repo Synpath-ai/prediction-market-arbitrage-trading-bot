@@ -38,7 +38,7 @@ class Pair:
 
 def resolve(event_id: str, kalshi_id: str, *, http: httpx.Client | None = None) -> Pair:
     """The pair for one Kalshi listing on a catalog event."""
-    link = synpath.match_market(kalshi_id).matched
+    link = synpath.match_market(kalshi_id, venue="polymarket").matched
     if link is None or link.venue != "polymarket":
         raise LookupError(f"{kalshi_id}: Polymarket lists no market asking the same question")
     own = http is None

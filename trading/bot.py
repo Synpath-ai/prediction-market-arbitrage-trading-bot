@@ -1,5 +1,8 @@
-"""The live strategy runner: every poll, price each configured market from both platforms' live
-order books and apply the strategy, paper trading at the quoted prices.
+"""The live strategy runner: whenever either platform's order book moves, price that market from
+both live books and apply the strategy, paper trading at the quoted prices.
+
+Prices come over the venues' WebSockets (see trading/feed.py), not on a timer: an opportunity is
+seen the moment it appears rather than at the next poll.
 
 No orders are sent. An entry signal opens a paper position of equal YES and NO contracts at the
 prices the books quote (capped by the size quoted there), and an exit signal closes it at the bids,
@@ -10,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import json
+import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,9 +21,11 @@ from typing import Any
 
 import synpath
 
-from .arbitrage import Book, Leg, Opportunity, Pricer
-from .matcher import Pair, resolve, tradeable
-from .strategy import Strategy
+from src.arbitrage import Book, Leg, Opportunity, Pricer
+from src.matcher import Pair, resolve, tradeable
+from src.strategy import Strategy
+
+from .feed import LiveFeed
 
 
 @dataclass
@@ -59,6 +65,8 @@ class ArbitrageBot:
         self.positions: dict[str, Position] = {}
         self.state_file = Path(config["state_file"])
         self.trades_file = Path(config["trades_file"])
+        self.status_every = float(config.get("status_interval_seconds", 60))
+        self._last_status: dict[str, float] = {}
         self._stop = asyncio.Event()
 
     # -- setup ----------------------------------------------------------------
@@ -98,18 +106,6 @@ class ArbitrageBot:
             w.writerow([pos.opened_at, now(), pair.name, pos.direction, pos.contracts, pos.yes_venue, pos.yes_price,
                         pos.no_venue, pos.no_price, exit_yes, exit_no, round(pnl, 4), round(pnl * pos.contracts, 2)])
 
-    # -- market data ----------------------------------------------------------
-
-    def books(self, pair: Pair) -> tuple[Book, Book]:
-        """Both platforms' top of book in this market's terms."""
-        def top(market_id: str) -> Book:
-            b = self.client.fetch_order_book(market_id, side="yes", depth=1)
-            bid, ask = b.best_bid, b.best_ask
-            return Book(bid.price if bid else None, ask.price if ask else None,
-                        bid.size if bid else None, ask.size if ask else None)
-        kalshi, poly = top(pair.kalshi_id), top(pair.poly_id)
-        return kalshi, (poly.flipped() if pair.flipped else poly)
-
     # -- the strategy ---------------------------------------------------------
 
     def enter(self, pair: Pair, opp: Opportunity) -> None:
@@ -130,6 +126,8 @@ class ArbitrageBot:
         round_trip = pricer.unwind(opp, kalshi, poly)
         prices = pricer.exit_prices(opp, kalshi, poly)
         if not self.strategy.should_exit(round_trip) or prices is None:
+            if not self._status_due(pair):
+                return
             print(f"[HOLD] {pair.name}: {pos.contracts:g} pairs · selling now nets {cents(round_trip)}/pair "
                   f"(target {cents(self.strategy.take_profit)}, locked {cents(pos.edge)})")
             return
@@ -139,37 +137,62 @@ class ArbitrageBot:
         print(f"[EXIT] {pair.name}: sell YES {pos.yes_venue} {cents(prices[0])} + NO {pos.no_venue} {cents(prices[1])}"
               f" · {cents(round_trip)}/pair · ${round_trip * pos.contracts:,.2f}")
 
-    async def poll(self) -> None:
-        for pair in self.pairs:
-            try:
-                kalshi, poly = await asyncio.to_thread(self.books, pair)
-            except Exception as exc:
-                print(f"[ERROR] {pair.name}: {type(exc).__name__}: {exc}")
-                continue
-            pos = self.positions.get(pair.kalshi_id)
-            if pos is not None:
-                self.maybe_exit(pair, pos, kalshi, poly)
-                continue
-            opps = self.pricers[pair.kalshi_id].opportunities(kalshi, poly)
-            best = opps[0] if opps else None
+    def evaluate(self, pair: Pair, kalshi: Book, poly: Book) -> None:
+        """Apply the strategy to one market's current books: exit or hold an open position,
+        else enter if the edge is there."""
+        pos = self.positions.get(pair.kalshi_id)
+        if pos is not None:
+            self.maybe_exit(pair, pos, kalshi, poly)
+            return
+        opps = self.pricers[pair.kalshi_id].opportunities(kalshi, poly)
+        best = opps[0] if opps else None
+        opp = self.strategy.entry(opps)
+        if opp is not None:
+            self.enter(pair, opp)
+        elif self._status_due(pair):
             print(f"[{pair.name}] Kalshi {cents(kalshi.bid)}/{cents(kalshi.ask)} · Polymarket {cents(poly.bid)}/{cents(poly.ask)}"
                   f" · best edge {cents(best.edge if best else None)}")
-            opp = self.strategy.entry(opps)
-            if opp is not None:
-                self.enter(pair, opp)
 
-    async def start(self) -> None:
-        print(f"[STARTED] paper trading · {self.strategy.describe()} · {self.config['contracts']:g} contracts · "
-              f"every {self.config['poll_interval_seconds']}s\n")
+    def _status_due(self, pair: Pair) -> bool:
+        """At most one status line per market per `status_interval_seconds`: books move many
+        times a second, entries and exits are always printed."""
+        now_s = time.monotonic()
+        if now_s - self._last_status.get(pair.kalshi_id, float("-inf")) < self.status_every:
+            return False
+        self._last_status[pair.kalshi_id] = now_s
+        return True
+
+    async def start(self, feed: LiveFeed | None = None) -> None:
         self.load_pairs()
         self.load_state()
-        while not self._stop.is_set():
-            print(f"\n[{now()}]")
-            await self.poll()
+        if not self.pairs:
+            print("[STOPPED] no tradeable markets")
+            return
+        if feed is None:
+            kalshi_credentials = None
             try:
-                await asyncio.wait_for(self._stop.wait(), timeout=self.config["poll_interval_seconds"])
-            except asyncio.TimeoutError:
-                pass
+                kalshi_credentials = synpath.load_credentials().get("kalshi")
+            except Exception as exc:          # a half-configured key: say so, and poll Kalshi instead
+                print(f"[FEED] Kalshi credentials not loaded ({exc}); reading Kalshi over REST")
+            feed = LiveFeed(self.pairs, client=self.client, kalshi_credentials=kalshi_credentials,
+                            kalshi_poll_seconds=self.config.get("kalshi_poll_seconds", 2))
+        print(f"[STARTED] paper trading · {self.strategy.describe()} · {self.config['contracts']:g} contracts · "
+              f"Polymarket over WebSocket · Kalshi over {feed.kalshi_mode}\n")
+        await feed.start()
+        changes = asyncio.create_task(self._run(feed))
+        await self._stop.wait()
+        changes.cancel()
+        await feed.close()
+
+    async def _run(self, feed: LiveFeed) -> None:
+        async for pair in feed.changes():
+            books = feed.books(pair)
+            if books is None:
+                continue
+            try:
+                self.evaluate(pair, *books)
+            except Exception as exc:
+                print(f"[ERROR] {pair.name}: {type(exc).__name__}: {exc}")
 
     def stop(self) -> None:
         self._stop.set()

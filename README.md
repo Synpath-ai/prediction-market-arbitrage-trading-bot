@@ -38,7 +38,18 @@ This bot:
 
 ![Backtest P&L across three markets](assets/backtest-pnl.png)
 
-*Backtest of the strategy on three markets listed on both platforms: 60 days of hourly prices, 1,000 contracts per leg. **+$863.80 total P&L, a +29.4% return** on the $2,933 peak capital tied up at once, across 20 trades, every one closed at a profit. Produced with `python -m backtest.backtest` and `python -m backtest.charts --generic-names`.*
+*Backtest of the strategy on three markets listed on both platforms: 60 days of 1-minute prices (Jul 29 – Sep 27, 2026), 1,000 contracts per leg. **+$1,771.40 total P&L, a +60.4% return** on the $2,934 peak capital tied up at once, across 44 trades, every one closed at a profit. Simulated: Polymarket publishes no historical order book, so its quoted price stands for both bid and ask, and every fill is assumed at the quoted price with no delay. At 1-minute resolution those assumptions flatter the result more than hourly bars did (the same window at 1-hour bars: +$863.80 across 20 trades). Produced with `python -m backtest.backtest` and `python -m backtest.charts --generic-names`.*
+
+## Backtest vs. live trading
+
+| | Backtest | Live trading |
+|---|---|---|
+| Command | `python -m backtest.backtest` | `python -m trading` |
+| Prices | historical 1-minute bars (`--timeframe 1h` for hourly) | live order books over the venues' WebSockets |
+| Orders | simulated | **paper trading**: no orders are placed |
+| Needs | a Synpath API key | a Synpath API key; a Kalshi API key for Kalshi's WebSocket (optional) |
+
+**Placing real orders** is done with **[Synpath](https://github.com/Synpath-ai/synpath)**, the library this bot is built on: limit, IOC and FOK orders on Kalshi, Polymarket and Opinion, plus the live fill streams a two-legged trade needs. This bot stops at the signal.
 
 ## How Cross-Platform Arbitrage Works
 
@@ -116,6 +127,8 @@ This finds the **10 markets with the best arbitrage profit available right now**
 
 Change what it picks with `--limit 20`, `--sort gap` (largest price difference right now) or `--sort volume` (most traded), and narrow the search with `--query "senate"` or `--domain election`.
 
+For live Kalshi prices over WebSocket, also add a Kalshi API key (`KALSHI_KEY_ID` and `KALSHI_PRIVATE_KEY_PATH`): Kalshi signs every WebSocket connection, even for market data. Without one, the bot reads Kalshi's public order book every 2 seconds instead. Polymarket's WebSocket needs no key.
+
 ### 4. Set the strategy
 
 Adjust the rest of `config.py` to taste:
@@ -126,7 +139,8 @@ Adjust the rest of `config.py` to taste:
 | `take_profit` | Minimum round-trip profit per pair to exit | `0.02` |
 | `contracts` | Contracts per leg (capped by available liquidity) | `1000` |
 | `require_same_rules` | Only trade markets whose rules match | `True` |
-| `poll_interval_seconds` | Seconds between price checks | `60` |
+| `kalshi_poll_seconds` | Seconds between Kalshi book reads when there is no Kalshi key | `2` |
+| `status_interval_seconds` | At most one status line per market this often (entries and exits always print) | `60` |
 
 ## Finding Arbitrage Opportunities
 
@@ -146,24 +160,28 @@ Market matching is done by Synpath, not by comparing titles. Each matched market
 
 Add `--save` to keep the `same` markets in `markets.json`, which the bot and backtest then use. To pick markets by hand instead, list them in `config.py` or pass `--market EVENT_ID KALSHI_ID`.
 
-## Usage
+## Live Trading
 
 ```bash
-python -m src.main                                      # every saved market
-python -m src.main --market <event_id> kalshi:<TICKER>  # a single market
+python -m trading                                      # every saved market
+python -m trading --market <event_id> kalshi:<TICKER>  # a single market
 ```
 
-Every poll, the bot reads both platforms' live order books, prices both combinations, and prints what the strategy does: an **entry** signal opens a paper position at the quoted prices, an **exit** signal closes it at the bids and records the profit, and otherwise it reports the position being held. Paper positions are saved to `state/positions.json`, so they carry over after a restart, and every completed trade is recorded in `state/trades.csv`.
+The bot subscribes to both platforms' order books over WebSocket (Polymarket's always; Kalshi's when a Kalshi key is set, otherwise it reads Kalshi every 2 seconds) and re-prices a market the moment either book moves. It prints what the strategy does: an **entry** signal opens a paper position at the quoted prices, an **exit** signal closes it at the bids and records the profit, and otherwise it reports the position being held, at most once a minute per market. Paper positions are saved to `state/positions.json`, so they carry over after a restart, and every completed trade is recorded in `state/trades.csv`.
+
+No orders are sent. To trade for real, place the two legs with [Synpath](https://github.com/Synpath-ai/synpath). Two exchanges can't fill one atomic trade, so one leg can fill while the other doesn't: the usual answer is to rest a limit order on the thinner side and, the moment it fills, take the other side with a fill-or-kill order, with an unwind ready if the hedge misses.
 
 ## Backtesting
 
 ```bash
-python -m backtest.backtest --days 60
+python -m backtest.backtest --days 60                     # 1-minute bars
+python -m backtest.backtest --days 60 --timeframe 1h      # hourly bars
+python -m backtest.backtest --until "2026-09-27 11:00"    # a fixed window, to reproduce a run
 python -m backtest.charts
 python -m backtest.charts --market kalshi:<TICKER> --start YYYY-MM-DD --end YYYY-MM-DD
 ```
 
-The backtest runs the same strategy code on hourly price history and reports the trades and P&L for each market. The charts show, for each market:
+The backtest runs the same strategy code on 1-minute price history (hourly or 5-minute with `--timeframe`) and reports the trades and P&L for each market. The charts show, for each market:
 
 - **Prices:** both platforms' prices, with the spread shaded and every entry and exit marked
 - **P&L:** cumulative P&L, with the profit of each trade
@@ -175,15 +193,17 @@ Options: `--by-close` counts trades by the date they closed, `--best` shows each
 ```
 prediction-market-arbitrage-trading-bot/
 ├── config.py            # Markets, strategy parameters, position size
-├── src/
-│   ├── main.py          # Entry point
+├── trading/
+│   ├── __main__.py      # Entry point: python -m trading
 │   ├── bot.py           # Live strategy loop, paper positions and trades
+│   └── feed.py          # Live order books over the venues' WebSockets
+├── src/
 │   ├── strategy.py      # Entry and exit rules
 │   ├── arbitrage.py     # Arbitrage pricing, fees, profit calculation
 │   ├── matcher.py       # Cross-platform market matching and rule check
 │   └── discover.py      # Finds markets listed on both platforms
 ├── backtest/
-│   ├── data.py          # Historical prices
+│   ├── data.py          # Historical 1-minute (or hourly) prices
 │   ├── backtest.py      # Strategy simulation
 │   └── charts.py        # Entry/exit and P&L charts
 └── tests/               # Offline unit tests

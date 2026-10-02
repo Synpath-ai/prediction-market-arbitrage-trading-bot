@@ -31,6 +31,11 @@ from matplotlib.text import Text
 
 OUT = Path("out")
 HOUR_MS = 3_600_000
+RESOLUTION = {"1m": "1-minute", "5m": "5-minute", "1h": "hourly"}
+MAX_BAR_LABELS = 22
+"""Most trade bars labelled underneath; with more, every n-th is."""
+resolution = "hourly"
+"""The bar size of the backtest being drawn, read from its file (files without one are hourly)."""
 DAY_MS = 24 * HOUR_MS
 BG, TEXT, MUTED, GRID, EDGE = "#0f1216", "#e6e8eb", "#8b929b", "#222831", "#2d343d"
 KALSHI, POLY, SPREAD, EXIT, TAG = "#38bdf8", "#f5b83d", "#a78bfa", "#fb7185", "#1a1f26"
@@ -182,7 +187,7 @@ def entries_chart(pair: dict, trades: list[dict], start: int, end: int, path: Pa
         txt.set_color(TEXT)
     fig.text(0.012, 0.965, pair["name"], fontsize=15, fontweight="bold", color=TEXT, va="top")
     fig.text(0.012, 0.922, f"Kalshi × Polymarket  ·  {strategy}  ·  data via synpath", fontsize=10, color=MUTED, va="top")
-    fig.text(0.988, 0.012, f"{pair['kalshi_id']} / {pair['poly_id']}  ·  hourly, Polymarket {source}  ·  {note}  ·  "
+    fig.text(0.988, 0.012, f"{pair['kalshi_id']} / {pair['poly_id']}  ·  {resolution}, Polymarket {source}  ·  {note}  ·  "
              "entry % = edge locked after fees per $1", ha="right", fontsize=7.8, color=MUTED, fontfamily=MONO)
     fig.tight_layout(rect=(0, 0.025, 1, 0.9))
     place(fig, ax, items, point_boxes(ax, points, r=7 * fig.dpi / 72))
@@ -283,9 +288,13 @@ def pnl_chart(title: str, trades: list[dict], contracts: float, start: int, end:
             labels.append(f"{short}\n{dt(t['exit_ms']):%b %d}")
             continue
         held = (t["exit_ms"] - t["entry_ms"]) / HOUR_MS
+        span = f"{held:.0f}h" if held >= 1 else f"{held * 60:.0f}m"
         head = f"#{n}  ·  {market}" if numbered else market
-        labels.append(f"{head}\n{dt(t['exit_ms']):%b %d %H:%M}  ·  held {held:.0f}h\n"
+        labels.append(f"{head}\n{dt(t['exit_ms']):%b %d %H:%M}  ·  held {span}\n"
                       f"YES {VENUE[t['yes_venue']]} {t['yes_price'] * 100:.1f}¢ + NO {VENUE[t['no_venue']]} {t['no_price'] * 100:.1f}¢")
+    if len(labels) > MAX_BAR_LABELS:    # past this many bars the labels run into each other
+        step = -(-len(labels) // MAX_BAR_LABELS)
+        labels = [label if i % step == 0 else "" for i, label in enumerate(labels)]
     bx.set_xticks(idx, labels)
     bx.axhline(0, color=EDGE, lw=1)
     hi_, lo_ = max(pnl + [1]), min(pnl + [0])
@@ -318,8 +327,8 @@ def pnl_chart(title: str, trades: list[dict], contracts: float, start: int, end:
             items += [(money(y), (x, y), spots, plain) for x, y in zip(xs[1:-2], ys[1:-2])]
     place(fig, ax, items, point_boxes(ax, list(zip(xs[:-1], ys[:-1]))), pad=2)
     if len(footnote) > 150:          # too long for one line: the caveats go on a second
-        head, _, tail = footnote.partition("  ·  hourly backtest")
-        footnote = f"{head}\nhourly backtest{tail}" if tail else footnote
+        head, _, tail = footnote.partition(f"  ·  {resolution} backtest")
+        footnote = f"{head}\n{resolution} backtest{tail}" if tail else footnote
     fig.text(0.975, 0.012, footnote, ha="right", va="bottom", fontsize=7.8, color=MUTED, fontfamily=MONO,
              linespacing=1.6)
     fig.savefig(path, dpi=160, facecolor=BG)
@@ -344,13 +353,15 @@ def main() -> None:
     a = ap.parse_args()
 
     data = json.loads(Path(a.file).read_text())
+    global resolution
+    resolution = RESOLUTION.get(data.get("timeframe", "1h"), data.get("timeframe", "hourly"))
     contracts, strategy, source = data["contracts"], data["strategy"], data["source"]
     pairs = [p for p in data["pairs"] if a.market is None or p["kalshi_id"] == a.market]
     if not pairs:
         raise SystemExit(f"{a.market} is not in {a.file}")
     OUT.mkdir(exist_ok=True)
     tag = f"_{a.start}_{a.end}" if a.start or a.end else ("_best" if a.best else "")
-    caveat = "hourly backtest, Polymarket at its quoted price, fills assumed at the quoted prices"
+    caveat = f"{resolution} backtest, Polymarket at its quoted price, fills assumed at the quoted prices"
     together = []
     if a.generic_names:
         for i, pair in enumerate(pairs):

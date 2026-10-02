@@ -26,7 +26,7 @@ VENUES = ("kalshi", "polymarket")
 @dataclass(frozen=True)
 class Book:
     """Top of one venue's book in the YES price, with the size quoted at each. `None` where the
-    venue quotes nothing (or, for sizes, where the data has none, as in hourly history)."""
+    venue quotes nothing (or, for sizes, where the data has none, as in candle history)."""
     bid: float | None
     ask: float | None
     bid_size: float | None = None

@@ -28,8 +28,11 @@ CONFIG = {
     # False also accepts `insufficient`; a `not_same` pair is never traded.
     "require_same_rules": True,
 
-    # Seconds between checks.
-    "poll_interval_seconds": 60,
+    # Live prices come over the venues' WebSockets. Kalshi's needs a Kalshi API key (KALSHI_KEY_ID
+    # and KALSHI_PRIVATE_KEY_PATH in .env); without one, Kalshi's book is read every this many seconds.
+    "kalshi_poll_seconds": 2,
+    # At most one status line per market this often; entries and exits are always printed.
+    "status_interval_seconds": 60,
 
     # Where the paper positions and closed trades are kept between runs.
     "state_file": "state/positions.json",
