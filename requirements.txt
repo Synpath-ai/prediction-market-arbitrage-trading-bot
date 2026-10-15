@@ -1,4 +1,4 @@
-synpath>=0.2.0
+synpath>=0.8.1
 httpx>=0.27
 matplotlib>=3.8
 numpy>=1.26
