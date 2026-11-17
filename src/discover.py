@@ -86,13 +86,22 @@ def read_books(client: synpath.Client, c: Candidate) -> Candidate:
             b = client.fetch_order_book(market_id, side="yes", depth=1)
         except Exception:
             return None
-        return Book(b.best_bid.price if b.best_bid else None, b.best_ask.price if b.best_ask else None)
+        return Book(
+            b.best_bid.price if b.best_bid else None,
+            b.best_ask.price if b.best_ask else None,
+            b.best_bid.size if b.best_bid else None,
+            b.best_ask.size if b.best_ask else None,
+        )
     c.kalshi, poly = top(c.pair.kalshi_id), top(c.pair.poly_id)
     c.poly = poly.flipped() if poly is not None and c.pair.flipped else poly
     if c.kalshi is not None and c.poly is not None:
         try:
             pricer = Pricer(client.fetch_fee_schedule(c.pair.kalshi_id), client.fetch_fee_schedule(c.pair.poly_id))
-            opps = pricer.opportunities(c.kalshi, c.poly)
+            opps = pricer.opportunities(
+                c.kalshi,
+                c.poly,
+                require_depth=True,
+            )
             c.edge = opps[0].edge if opps else None
         except Exception:
             c.edge = None
@@ -147,9 +156,17 @@ def main() -> None:
         line = f"{i:>3}. {c.pair.rules:<12} {c.pair.name[:56]:<56} {c.pair.kalshi_id} <-> {c.pair.poly_id}  vol ${c.volume:,.0f}"
         if live:
             k, p = c.kalshi, c.poly
-            line += (f"  Kalshi {cents(k.bid if k else None)}/{cents(k.ask if k else None)}"
-                     f"  Poly {cents(p.bid if p else None)}/{cents(p.ask if p else None)}"
-                     f"  gap {cents(c.gap)}  edge {cents(c.edge)}")
+
+            def quantity(x: float | None) -> str:
+                return "?" if x is None else f"{x:g}"
+
+            line += (
+                f"  Kalshi {cents(k.bid if k else None)}/{cents(k.ask if k else None)}"
+                f"  Poly {cents(p.bid if p else None)}/{cents(p.ask if p else None)}"
+                f"  Depth K {quantity(k.bid_size if k else None)}/{quantity(k.ask_size if k else None)}"
+                f"  P {quantity(p.bid_size if p else None)}/{quantity(p.ask_size if p else None)}"
+                f"  gap {cents(c.gap)}  edge {cents(c.edge)}"
+            )
         print(line)
     print(f"\nTop {len(shown)} of {len(found)} markets from {len(events)} events, sorted by {a.sort}.")
     same = [c.pair for c in shown if c.pair.rules == "same"]

@@ -22,7 +22,22 @@ CONFIG = {
 
     # Size: contracts per leg, the same number of YES and NO so the pair is hedged, never more than
     # the size quoted at the best price on either leg.
-    "contracts": 1000,
+    "contracts": 1,
+
+    # Maximum number of markets with open paper positions.
+    "max_open_positions": 3,
+
+    # Maximum total capital committed across all open paper positions, in dollars.
+    "max_capital_committed": 100.00,
+
+    # Maximum dollar cost of unmatched contracts across all open paper positions.
+    "max_unmatched_exposure": 10.00,
+
+    # Maximum net realized loss allowed per UTC calendar day, in dollars.
+    "max_daily_loss": 10.00,
+
+    # Emergency stop: blocks new entries but continues managing open positions.
+    "emergency_stop": False,
 
     # Only trade pairs whose rules the catalog compares as the same (`same`). Setting this to
     # False also accepts `insufficient`; a `not_same` pair is never traded.

@@ -11,6 +11,7 @@ One position per market at a time.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 
 from .arbitrage import Opportunity
 
@@ -19,6 +20,28 @@ from .arbitrage import Opportunity
 class Strategy:
     entry_edge: float = 0.02
     take_profit: float = 0.02
+
+    def __post_init__(self) -> None:
+        """Validate strategy thresholds before live trading or backtesting."""
+
+        for name, value in (
+            ("entry_edge", self.entry_edge),
+            ("take_profit", self.take_profit),
+        ):
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(
+                    f"{name} must be a finite non-negative number"
+                )
+
+            try:
+                valid = isfinite(value) and value >= 0
+            except (TypeError, ValueError, OverflowError):
+                valid = False
+
+            if not valid:
+                raise ValueError(
+                    f"{name} must be a finite non-negative number"
+                )
 
     def entry(self, opportunities: list[Opportunity]) -> Opportunity | None:
         """The combination to buy now, or `None`."""

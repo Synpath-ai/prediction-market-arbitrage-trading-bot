@@ -1,32 +1,33 @@
-"""Pricing one matched pair: what buying both sides costs, what it locks, and what selling it back
-would make.
 
-Both venues quote one book per market in the YES price, read from both sides:
-
-  YES ask   the book's ask                 NO ask   1 - the book's bid
-  YES bid   the book's bid                 NO bid   1 - the book's ask
-
-Two combinations pay exactly $1 whatever happens: YES on Kalshi + NO on Polymarket, and YES on
-Polymarket + NO on Kalshi. Each is priced at the prices a taker actually gets (asks to buy, bids
-to sell) plus each venue's taker fee from its published schedule.
-"""
+"""Pricing one matched pair and calculating entry and exit costs."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 
 from synpath import FeeSchedule
 
-# Two books quoting the same proposition do not sit on opposite sides of 50%. When they appear to,
-# the pairing is wrong (a mislabelled side, the wrong market), and the "profit" is the mistake.
 MAX_DISAGREEMENT = 0.5
 
 VENUES = ("kalshi", "polymarket")
+def _is_finite_number(value: object) -> bool:
+    """Check that a value is a finite numeric value, excluding booleans."""
+    try:
+        return not isinstance(value, bool) and isfinite(value)
+    except (TypeError, ValueError, OverflowError):
+        return False
 
+
+def _valid_price(value: float) -> bool:
+    """Check that a probability price is finite and between zero and one."""
+    return (
+        _is_finite_number(value)
+        and 0 <= value <= 1
+    )
 
 @dataclass(frozen=True)
 class Book:
-    """Top of one venue's book in the YES price, with the size quoted at each. `None` where the
-    venue quotes nothing (or, for sizes, where the data has none, as in candle history)."""
+    """Top of one venue's YES book, including displayed quantities."""
     bid: float | None
     ask: float | None
     bid_size: float | None = None
@@ -47,32 +48,79 @@ class Book:
         return self.ask if self.ask is not None else self.bid
 
     def flipped(self) -> "Book":
-        """The same book seen from the other side, for a venue that states the proposition the
-        other way round (its YES is our NO)."""
+        """View the same proposition from the opposite YES/NO perspective."""
         return Book(self.no_bid, self.no_ask, self.ask_size, self.bid_size)
 
+def _valid_book(book: Book) -> bool:
+    """Check that all available prices and displayed quantities are valid."""
+    return (
+        (book.bid is None or _valid_price(book.bid))
+        and (book.ask is None or _valid_price(book.ask))
+        and (
+            book.bid is None
+            or book.ask is None
+            or book.bid <= book.ask
+        )
+        and (
+            book.bid_size is None
+            or (
+                _is_finite_number(book.bid_size)
+                and book.bid_size >= 0
+            )
+        )
+        and (
+            book.ask_size is None
+            or (
+                _is_finite_number(book.ask_size)
+                and book.ask_size >= 0
+            )
+        )
+    )
 
-def per_contract_fee(schedule: FeeSchedule, price: float, contracts: float) -> float:
-    """Taker fee per contract for an order of `contracts` at `price`. Kalshi rounds the fee of
-    each order up to the cent, so the size matters."""
-    if price <= 0 or price >= 1:
+def per_contract_fee(
+    schedule: FeeSchedule,
+    price: float,
+    contracts: float,
+) -> float | None:
+    """Return taker fee per contract, or None if the fee is unknown."""
+    if not _valid_price(price):
+        raise ValueError("Price must be finite and between 0 and 1")
+
+    if not _is_finite_number(contracts):
+        raise ValueError("Contract quantity must be finite")
+
+    if contracts < 0:
+        raise ValueError("Contract quantity cannot be negative")
+
+    if contracts == 0:
+        return None
+
+    if price == 0 or price == 1:
         return 0.0
+
     fee = schedule.estimate(price, contracts)
-    return 0.0 if fee is None else fee / contracts
+
+    if fee is None:
+        return None
+
+    if not _is_finite_number(fee) or fee < 0:
+        raise ValueError("Fee estimate must be finite and non-negative")
+
+    return fee / contracts
 
 
 @dataclass(frozen=True)
 class Leg:
-    venue: str        # "kalshi" or "polymarket"
-    side: str         # "yes" or "no"
-    price: float      # paid per contract
-    fee: float        # taker fee per contract
-    size: float | None = None   # contracts quoted at that price, where known
+    venue: str
+    side: str
+    price: float
+    fee: float
+    size: float | None = None
 
 
 @dataclass(frozen=True)
 class Opportunity:
-    direction: str    # "kalshi_yes": YES on Kalshi + NO on Polymarket; "poly_yes": the reverse
+    direction: str
     yes: Leg
     no: Leg
 
@@ -86,56 +134,178 @@ class Opportunity:
 
     @property
     def edge(self) -> float:
-        """Profit per pair if held to resolution: $1 minus what both legs and their fees cost."""
+        """Estimated profit per matched pair if held to resolution."""
         return round(1.0 - self.cost - self.fees, 4)
 
     @property
     def size(self) -> float | None:
-        """Contracts both legs can be bought at these prices, where the books say."""
+        """Smaller independently available entry depth, when known."""
         sizes = [s for s in (self.yes.size, self.no.size) if s is not None]
         return min(sizes) if sizes else None
 
 
 class Pricer:
-    def __init__(self, kalshi_fee: FeeSchedule, poly_fee: FeeSchedule, *, contracts: float = 1000):
-        self.fee = {"kalshi": kalshi_fee, "polymarket": poly_fee}
+    def __init__(
+        self,
+        kalshi_fee: FeeSchedule,
+        poly_fee: FeeSchedule,
+        *,
+        contracts: float = 1000,
+    ):
+        if not _is_finite_number(contracts) or contracts <= 0:
+            raise ValueError(
+                "Configured contracts must be a finite positive number"
+            )
+
+        self.fee = {
+            "kalshi": kalshi_fee,
+            "polymarket": poly_fee,
+        }
         self.contracts = contracts
 
-    def leg(self, venue: str, side: str, price: float, size: float | None = None) -> Leg:
-        return Leg(venue, side, price, per_contract_fee(self.fee[venue], price, self.contracts), size)
+    def leg(
+        self,
+        venue: str,
+        side: str,
+        price: float,
+        size: float | None = None,
+        contracts: float | None = None,
+    ) -> Leg | None:
+        quantity = self.contracts if contracts is None else contracts
+        fee = per_contract_fee(self.fee[venue], price, quantity)
 
-    def opportunities(self, kalshi: Book, poly: Book) -> list[Opportunity]:
-        """Both combinations that can be priced, best edge first. Empty when the books disagree
-        about the proposition by more than MAX_DISAGREEMENT."""
+        if fee is None:
+            return None
+
+        return Leg(venue, side, price, fee, size)
+
+
+    def opportunities(
+        self,
+        kalshi: Book,
+        poly: Book,
+        *,
+        require_depth: bool = False,
+    ) -> list[Opportunity]:
+        """Price both combinations using available top-of-book depth."""
+        if not _valid_book(kalshi) or not _valid_book(poly):
+            return []
+
         k, p = kalshi.mid, poly.mid
+
         if k is not None and p is not None and abs(k - p) > MAX_DISAGREEMENT:
             return []
+
         out = []
+
         for direction, yes_venue, yes_book, no_venue, no_book in (
             ("kalshi_yes", "kalshi", kalshi, "polymarket", poly),
             ("poly_yes", "polymarket", poly, "kalshi", kalshi),
         ):
             if yes_book.ask is None or no_book.no_ask is None:
                 continue
-            out.append(Opportunity(direction,
-                                   self.leg(yes_venue, "yes", yes_book.ask, yes_book.ask_size),
-                                   self.leg(no_venue, "no", no_book.no_ask, no_book.bid_size)))
-        return sorted(out, key=lambda o: -o.edge)
 
-    def exit_prices(self, opp: Opportunity, kalshi: Book, poly: Book) -> tuple[float, float] | None:
-        """What selling each leg fetches now: the YES leg at its venue's YES bid, the NO leg at its
-        venue's NO bid. `None` when either side has no bid."""
+            # Live pricing must have known quantities on both required sides.
+            if require_depth and (
+                yes_book.ask_size is None or no_book.bid_size is None
+            ):
+                continue
+
+            # Use known quantities when available. Historical data may have none.
+            matched_quantity = self.contracts
+
+            if yes_book.ask_size is not None:
+                matched_quantity = min(matched_quantity, yes_book.ask_size)
+
+            if no_book.bid_size is not None:
+                matched_quantity = min(matched_quantity, no_book.bid_size)
+
+            if matched_quantity <= 0:
+                continue
+
+            yes_leg = self.leg(
+                yes_venue,
+                "yes",
+                yes_book.ask,
+                yes_book.ask_size,
+                contracts=matched_quantity,
+            )
+
+            no_leg = self.leg(
+                no_venue,
+                "no",
+                no_book.no_ask,
+                no_book.bid_size,
+                contracts=matched_quantity,
+            )
+
+            if yes_leg is None or no_leg is None:
+                continue
+
+            out.append(Opportunity(direction, yes_leg, no_leg))
+
+        return sorted(out, key=lambda opportunity: opportunity.edge, reverse=True)
+
+
+    def exit_prices(
+        self,
+        opp: Opportunity,
+        kalshi: Book,
+        poly: Book,
+    ) -> tuple[float, float] | None:
+        """Return the current YES and NO exit bids."""
         books = {"kalshi": kalshi, "polymarket": poly}
-        yes_bid, no_bid = books[opp.yes.venue].bid, books[opp.no.venue].no_bid
+
+        yes_bid = books[opp.yes.venue].bid
+        no_bid = books[opp.no.venue].no_bid
+
         if yes_bid is None or no_bid is None:
             return None
+
         return yes_bid, no_bid
 
-    def unwind(self, opp: Opportunity, kalshi: Book, poly: Book) -> float | None:
-        """Profit per pair if both legs were sold now: the round trip after entry and exit fees."""
+    def unwind(
+        self,
+        opp: Opportunity,
+        kalshi: Book,
+        poly: Book,
+        contracts: float | None = None,
+    ) -> float | None:
+        """Estimated round-trip profit per pair after entry and exit fees."""
         prices = self.exit_prices(opp, kalshi, poly)
+
         if prices is None:
             return None
+
+        if contracts is None:
+            quantity = self.contracts
+            if opp.size is not None:
+                quantity = min(quantity, opp.size)
+        else:
+            quantity = contracts
+
         yes_bid, no_bid = prices
-        exit_fees = self.leg(opp.yes.venue, "yes", yes_bid).fee + self.leg(opp.no.venue, "no", no_bid).fee
-        return round(yes_bid + no_bid - opp.cost - opp.fees - exit_fees, 4)
+
+        yes_exit = self.leg(
+            opp.yes.venue,
+            "yes",
+            yes_bid,
+            contracts=quantity,
+        )
+
+        no_exit = self.leg(
+            opp.no.venue,
+            "no",
+            no_bid,
+            contracts=quantity,
+        )
+
+        if yes_exit is None or no_exit is None:
+            return None
+
+        exit_fees = yes_exit.fee + no_exit.fee
+
+        return round(
+            yes_bid + no_bid - opp.cost - opp.fees - exit_fees,
+            4,
+        )

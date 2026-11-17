@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from math import isfinite
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,6 +33,50 @@ from .data import DAY_MS, TIMEFRAMES, history
 
 OUT = Path("out")
 
+def _positive_contracts(value: str | int | float) -> int:
+    """Accept only finite, positive whole-number contract quantities."""
+    try:
+        if isinstance(value, bool):
+            raise ValueError
+
+        number = float(value)
+
+    except (TypeError, ValueError, OverflowError):
+        raise argparse.ArgumentTypeError(
+            "contracts must be a positive whole number"
+        ) from None
+
+    if (
+        not isfinite(number)
+        or number <= 0
+        or not number.is_integer()
+    ):
+        raise argparse.ArgumentTypeError(
+            "contracts must be a positive whole number"
+        )
+
+    return int(number)
+
+
+def _poly_spread(value: str | int | float) -> float:
+    """Accept a finite Polymarket spread between zero and one."""
+    try:
+        if isinstance(value, bool):
+            raise ValueError
+
+        number = float(value)
+
+    except (TypeError, ValueError, OverflowError):
+        raise argparse.ArgumentTypeError(
+            "Polymarket spread must be finite and between 0 and 1"
+        ) from None
+
+    if not isfinite(number) or not 0 <= number <= 1:
+        raise argparse.ArgumentTypeError(
+            "Polymarket spread must be finite and between 0 and 1"
+        )
+
+    return number
 
 def iso(ms: int) -> str:
     return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
@@ -72,9 +117,21 @@ def main() -> None:
     ap.add_argument("--timeframe", choices=tuple(TIMEFRAMES), default="1m", help="bar size (default 1m)")
     ap.add_argument("--until", help="end of the window, 'YYYY-MM-DD HH:MM' UTC (default: now)")
     ap.add_argument("--source", choices=("quotes", "trades"), default="quotes", help="Polymarket history")
-    ap.add_argument("--contracts", type=float, default=CONFIG["contracts"])
+    ap.add_argument(
+        "--contracts",
+        type=_positive_contracts,
+        default=_positive_contracts(CONFIG["contracts"]),
+    )
+
     ap.add_argument("--entry-edge", type=float, default=CONFIG["entry_edge"])
     ap.add_argument("--take-profit", type=float, default=CONFIG["take_profit"])
+
+    ap.add_argument(
+        "--poly-spread",
+        type=_poly_spread,
+        default=0.02,
+        help="assumed full Polymarket bid/ask spread (default: 0.02)",
+    )
     ap.add_argument("--market", nargs=2, action="append", metavar=("EVENT_ID", "KALSHI_ID"),
                     help="a market to test instead of config.py's list; repeatable")
     a = ap.parse_args()
@@ -90,33 +147,92 @@ def main() -> None:
     until = int(end) // step * step
     since = until - a.days * DAY_MS
     client = synpath.Client()
-    out = {"generated_at": iso(until), "since": iso(since), "timeframe": a.timeframe, "source": a.source,
-           "contracts": a.contracts, "strategy": strategy.describe(), "pairs": []}
-    print(f"{strategy.describe()}  ·  {a.contracts:g} contracts  ·  {a.days}d of {a.timeframe} bars, Polymarket {a.source}\n")
+
+    out = {
+        "generated_at": iso(until),
+        "since": iso(since),
+        "timeframe": a.timeframe,
+        "source": a.source,
+        "contracts": a.contracts,
+        "poly_spread_assumption": a.poly_spread,
+        "strategy": strategy.describe(),
+        "pairs": [],
+    }
+
+    print(
+        f"{strategy.describe()}  ·  {a.contracts:g} contracts  ·  "
+        f"{a.days}d of {a.timeframe} bars, Polymarket {a.source}\n"
+    )
+
     total = 0.0
+
     for market in markets:
         pair = resolve(market["event"], market["kalshi"])
+
         if not tradeable(pair, require_same=CONFIG["require_same_rules"]):
             print(f"skip {pair.name}: rules '{pair.rules}'")
             continue
-        pricer = Pricer(client.fetch_fee_schedule(pair.kalshi_id), client.fetch_fee_schedule(pair.poly_id), contracts=a.contracts)
-        rows = history(pair, since, until, source=a.source, timeframe=a.timeframe)
+
+        pricer = Pricer(
+            client.fetch_fee_schedule(pair.kalshi_id),
+            client.fetch_fee_schedule(pair.poly_id),
+            contracts=a.contracts,
+        )
+
+        rows = history(
+            pair,
+            since,
+            until,
+            source=a.source,
+            timeframe=a.timeframe,
+            poly_spread=a.poly_spread,
+        )
+
         trades = simulate(rows, pricer, strategy)
+
         closed = [t for t in trades if t["exit_ms"] is not None]
         held = [t for t in trades if t["exit_ms"] is None]
-        pnl = sum(t["pnl"] for t in closed) * a.contracts
-        total += pnl
-        print(f"{pair.name:44} {len(closed):>3} closed, {sum(t['pnl'] > 0 for t in closed):>3} won  "
-              f"${pnl:>9,.2f}" + (f"   {len(held)} held (locked ${sum(t['edge'] for t in held) * a.contracts:,.2f})" if held else ""))
+
+        realized_pnl = sum(t["pnl"] for t in closed) * a.contracts
+        locked_edge = sum(t["edge"] for t in held) * a.contracts
+        liquidation_value = sum(t["mark"] for t in held) * a.contracts
+
+        total += realized_pnl
+
+        print(
+            f"{pair.name:44} "
+            f"{len(closed):>3} closed, "
+            f"{sum(t['pnl'] > 0 for t in closed):>3} won  "
+            f"realized ${realized_pnl:>8,.2f}"
+        )
+
+        if held:
+            print(
+                f"{'':44} "
+                f"{len(held)} held  |  "
+                f"locked edge ${locked_edge:,.2f}  |  "
+                f"hypothetical liquidation ${liquidation_value:,.2f}"
+            )
+
         out["pairs"].append({
-            "name": pair.name, "event": pair.event, "outcome": pair.outcome, "kalshi_id": pair.kalshi_id,
-            "poly_id": pair.poly_id, "rules": pair.rules,
-            "series": [[t, k.bid, k.ask, p.mid] for t, k, p in rows], "trades": trades,
+            "name": pair.name,
+            "event": pair.event,
+            "outcome": pair.outcome,
+            "kalshi_id": pair.kalshi_id,
+            "poly_id": pair.poly_id,
+            "rules": pair.rules,
+            "series": [[t, k.bid, k.ask, p.mid] for t, k, p in rows],
+            "trades": trades,
         })
+
     print(f"\n{'total':44} ${total:>27,.2f}")
+
     OUT.mkdir(exist_ok=True)
-    (OUT / "backtest.json").write_text(json.dumps(out, separators=(",", ":")))
+    (OUT / "backtest.json").write_text(
+        json.dumps(out, separators=(",", ":"))
+    )
     print(f"wrote {OUT / 'backtest.json'}")
+
 
 
 if __name__ == "__main__":

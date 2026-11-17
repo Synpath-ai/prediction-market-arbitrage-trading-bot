@@ -36,11 +36,27 @@ class Pair:
         return f"{self.event} · {self.outcome}"
 
 
+
 def resolve(event_id: str, kalshi_id: str, *, http: httpx.Client | None = None) -> Pair:
     """The pair for one Kalshi listing on a catalog event."""
-    link = synpath.match_market(kalshi_id, venue="polymarket").matched
+    prefix, separator, native = kalshi_id.partition(":")
+
+    if (
+        prefix != "kalshi"
+        or not separator
+        or not native
+        or ":" in native
+    ):
+        raise ValueError(
+            "Kalshi market ID must be formatted as 'kalshi:<ticker>'"
+        )
+
+    synpath_id = f"kalshi:{native}"
+
+    link = synpath.match_market(synpath_id, venue="polymarket").matched
     if link is None or link.venue != "polymarket":
-        raise LookupError(f"{kalshi_id}: Polymarket lists no market asking the same question")
+        raise LookupError(f"{synpath_id}: Polymarket lists no market asking the same question")
+
     own = http is None
     http = http or httpx.Client(timeout=30)
     try:
@@ -48,19 +64,50 @@ def resolve(event_id: str, kalshi_id: str, *, http: httpx.Client | None = None) 
     finally:
         if own:
             http.close()
-    native = kalshi_id.split(":", 1)[1]
+
     for outcome in event["outcomes"]:
-        kalshi = next((c for c in outcome["contracts"] if c["venue"] == "kalshi" and c["native_market_id"] == native), None)
+        kalshi = next(
+            (
+                c for c in outcome["contracts"]
+                if c["venue"] == "kalshi" and c["native_market_id"] == native
+            ),
+            None,
+        )
         if kalshi is None:
             continue
-        poly = next((c for c in outcome["contracts"] if f"polymarket:{c['native_market_id']}" == link.id), None)
-        comparison = next((c for c in outcome.get("comparisons") or [] if poly and
-                           {c["left_contract_id"], c["right_contract_id"]} == {kalshi["contract_id"], poly["contract_id"]}), None)
-        return Pair(event_id, event["title"].strip(), outcome["label"], kalshi_id, link.id,
-                    link.side_map.get("yes") == "no",
-                    comparison["internal_state"] if comparison else "unknown",
-                    comparison["reason"] if comparison else None)
-    raise LookupError(f"{kalshi_id} is not on event {event_id}")
+
+        poly = next(
+            (
+                c for c in outcome["contracts"]
+                if f"polymarket:{c['native_market_id']}" == link.id
+            ),
+            None,
+        )
+        comparison = next(
+            (
+                c for c in outcome.get("comparisons") or []
+                if poly
+                and {
+                    c["left_contract_id"],
+                    c["right_contract_id"],
+                } == {kalshi["contract_id"], poly["contract_id"]}
+            ),
+            None,
+        )
+
+        return Pair(
+            event_id,
+            event["title"].strip(),
+            outcome["label"],
+            synpath_id,
+            link.id,
+            link.side_map.get("yes") == "no",
+            comparison["internal_state"] if comparison else "unknown",
+            comparison["reason"] if comparison else None,
+        )
+
+    raise LookupError(f"{synpath_id} is not on event {event_id}")
+
 
 
 def tradeable(pair: Pair, *, require_same: bool = True) -> bool:
